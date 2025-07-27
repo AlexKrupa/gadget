@@ -7,6 +7,7 @@ import (
 	"adx/internal/emulator"
 	"adx/internal/tui/core"
 	"adx/internal/tui/features/media"
+	"adx/internal/tui/features/wifi"
 	"fmt"
 	"sort"
 	"strings"
@@ -75,6 +76,7 @@ type Model struct {
 
 	// Features
 	mediaFeature            *media.MediaFeature
+	wifiFeature             *wifi.WiFiFeature
 	textInput               string
 	textInputPrompt         string
 	textInputAction         string
@@ -110,6 +112,7 @@ func NewModel(cfg *config.Config) Model {
 		logHistory:           make([]LogEntry, 0),
 		maxLogEntries:        5, // Keep last 5 log entries
 		mediaFeature:         media.NewMediaFeature(cfg),
+		wifiFeature:          wifi.NewWiFiFeature(cfg),
 	}
 	m.filteredCommands = m.filterCommands()
 	return m
@@ -391,35 +394,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case wifiConnectDoneMsg:
 		m.connectingWiFi = false
-		if msg.Success {
-			m.addSuccess(msg.Message)
+		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiConnectDone(msg)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi connection
 			return m, loadDevices(m.config.GetADBPath())
-		} else {
-			m.addError(fmt.Sprintf("WiFi connection failed: %s", msg.Message))
+		} else if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case wifiDisconnectDoneMsg:
 		m.disconnectingWiFi = false
-		if msg.Success {
-			m.addSuccess(msg.Message)
+		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiDisconnectDone(msg)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi disconnection
 			return m, loadDevices(m.config.GetADBPath())
-		} else {
-			m.addError(fmt.Sprintf("WiFi disconnection failed: %s", msg.Message))
+		} else if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case wifiPairDoneMsg:
 		m.pairingWiFi = false
-		if msg.Success {
-			m.addSuccess(msg.Message)
+		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiPairDone(msg)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi pairing
 			return m, loadDevices(m.config.GetADBPath())
-		} else {
-			m.addError(fmt.Sprintf("WiFi pairing failed: %s", msg.Message))
+		} else if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case tickMsg:
