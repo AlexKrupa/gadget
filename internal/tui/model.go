@@ -5,6 +5,7 @@ import (
 	"adx/internal/commands"
 	"adx/internal/config"
 	"adx/internal/emulator"
+	"adx/internal/tui/core"
 	"fmt"
 	"sort"
 	"strings"
@@ -14,101 +15,43 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Mode represents the current TUI mode (like a Kotlin sealed class)
-type Mode string
+// Aliases for core types for backward compatibility
+type Mode = core.Mode
+type LogEntry = core.LogEntry
+type LogType = core.LogType
+type Command = core.Command
+type CommandCategory = core.CommandCategory
 
+// Constants from core
 const (
-	ModeMenu           Mode = "menu"
-	ModeDeviceSelect   Mode = "device-select"
-	ModeEmulatorSelect Mode = "emulator-select"
-	ModeCommand        Mode = "command"
-	ModeTextInput      Mode = "text-input"
+	ModeMenu           = core.ModeMenu
+	ModeDeviceSelect   = core.ModeDeviceSelect
+	ModeEmulatorSelect = core.ModeEmulatorSelect
+	ModeCommand        = core.ModeCommand
+	ModeTextInput      = core.ModeTextInput
 )
 
-// tickMsg is sent for progress animation
+const (
+	LogTypeSuccess = core.LogTypeSuccess
+	LogTypeError   = core.LogTypeError
+	LogTypeInfo    = core.LogTypeInfo
+)
+
+// tickMsg is sent for progress animation - keep local for now
 type tickMsg time.Time
 
-// LogEntry represents a log message with metadata
-type LogEntry struct {
-	Message   string
-	Type      LogType
-	Timestamp time.Time
-}
-
-// LogType represents the type of log message
-type LogType int
-
-const (
-	LogTypeSuccess LogType = iota
-	LogTypeError
-	LogTypeInfo
-)
-
-// Command represents a menu command
-type Command struct {
-	Command     string // kebab-case command name for CLI
-	Name        string
-	Description string
-	Category    string
-}
-
-// CommandCategory represents a group of related commands
-type CommandCategory struct {
-	Name     string
-	Commands []Command
-}
-
-// getAvailableCommands returns the list of all available commands
+// Delegate to core functions
 func getAvailableCommands() []Command {
-	return []Command{
-		{"screenshot", "Screenshot", "Take a screenshot", "Media"},
-		{"screenshot-day-night", "Screenshot day-night", "Take screenshots in day and night mode", "Media"},
-		{"screen-record", "Screen record", "Record the screen", "Media"},
-		{"change-dpi", "Change DPI", "Change device DPI", "Device settings"},
-		{"change-font-size", "Change font size", "Change device font size", "Device settings"},
-		{"change-screen-size", "Change screen size", "Change device screen size", "Device settings"},
-		{"pair-wifi", "Pair WiFi device", "Pair with a new WiFi device", "WiFi"},
-		{"connect-wifi", "Connect WiFi device", "Connect to a WiFi device", "WiFi"},
-		{"disconnect-wifi", "Disconnect WiFi device", "Disconnect from a WiFi device", "WiFi"},
-		{"launch-emulator", "Launch emulator", "Start an Android emulator", "Devices/emulators"},
-		{"refresh-devices", "Refresh devices", "Refresh the device list", "Devices/emulators"},
-	}
+	return core.GetAvailableCommands()
 }
 
-// getCommandCategories returns commands grouped by category
 func getCommandCategories() []CommandCategory {
-	commands := getAvailableCommands()
-	categoryMap := make(map[string][]Command)
-
-	// Group commands by category
-	for _, cmd := range commands {
-		categoryMap[cmd.Category] = append(categoryMap[cmd.Category], cmd)
-	}
-
-	// Return categories in desired order
-	categoryOrder := []string{"Media", "Device settings", "WiFi", "Devices/emulators"}
-	var categories []CommandCategory
-
-	for _, categoryName := range categoryOrder {
-		if cmds, exists := categoryMap[categoryName]; exists {
-			categories = append(categories, CommandCategory{
-				Name:     categoryName,
-				Commands: cmds,
-			})
-		}
-	}
-
-	return categories
+	return core.GetCommandCategories()
 }
 
 // GetAvailableCommandNames returns a list of all available command names for CLI help
 func GetAvailableCommandNames() []string {
-	commands := getAvailableCommands()
-	names := make([]string, len(commands))
-	for i, cmd := range commands {
-		names[i] = cmd.Command
-	}
-	return names
+	return core.GetAvailableCommandNames()
 }
 
 // Model represents the TUI state
@@ -1177,13 +1120,13 @@ func (m Model) renderLogHistory() string {
 
 		switch entry.Type {
 		case LogTypeSuccess:
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")).Bold(true)
+			style = core.SuccessStyle
 			prefix = "✓"
 		case LogTypeError:
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+			style = core.ErrorStyle
 			prefix = "✗"
 		case LogTypeInfo:
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("86"))
+			style = core.InfoStyle
 			prefix = "•"
 		}
 
