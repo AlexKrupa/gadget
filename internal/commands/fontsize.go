@@ -21,7 +21,7 @@ func GetCurrentFontSize(cfg *config.Config, device adb.Device) (*FontSizeInfo, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current font size: %w", err)
 	}
-	
+
 	// Parse output (e.g., "1.0" or "1.2")
 	currentStr := strings.TrimSpace(output)
 	if currentStr == "null" || currentStr == "" {
@@ -31,12 +31,12 @@ func GetCurrentFontSize(cfg *config.Config, device adb.Device) (*FontSizeInfo, e
 			Current: 1.0,
 		}, nil
 	}
-	
+
 	current, err := strconv.ParseFloat(currentStr, 64)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse font size from output: %s", output)
 	}
-	
+
 	return &FontSizeInfo{
 		Default: 1.0, // Android default is always 1.0
 		Current: current,
@@ -51,7 +51,7 @@ func SetFontSize(cfg *config.Config, device adb.Device, scale float64) error {
 	if err != nil {
 		return fmt.Errorf("failed to set font size to %s: %w", scaleStr, err)
 	}
-	
+
 	fmt.Printf("Font size changed to %s on device %s\n", scaleStr, device.Serial)
 	return nil
 }

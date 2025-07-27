@@ -19,19 +19,19 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// If no port specified, default to our static port 4444
 	if port == 0 {
 		port = DefaultWiFiPort
 		ipAndPort = fmt.Sprintf("%s:%d", ip, port)
 	}
-	
+
 	// Try connecting to the specified address
 	fmt.Printf("Attempting to connect to %s...\n", ipAndPort)
 	output, err := adb.ExecuteGlobalCommandWithOutput(adbPath, "connect", ipAndPort)
 	if err == nil && strings.Contains(output, "connected to") {
 		fmt.Printf("Successfully connected to %s\n", ipAndPort)
-		
+
 		// If we connected to a non-standard port, try to switch to our standard port
 		if port != DefaultWiFiPort {
 			fmt.Printf("Switching device to standard port %d...\n", DefaultWiFiPort)
@@ -41,40 +41,40 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 				fmt.Printf("Device will remain on port %d\n", port)
 				return nil
 			}
-			
+
 			time.Sleep(2 * time.Second)
-			
+
 			// Try connecting to the standard port
 			standardAddress := fmt.Sprintf("%s:%d", ip, DefaultWiFiPort)
 			fmt.Printf("Connecting to standard port %s...\n", standardAddress)
-			
+
 			standardOutput, standardErr := adb.ExecuteGlobalCommandWithOutput(adbPath, "connect", standardAddress)
 			if standardErr == nil && strings.Contains(standardOutput, "connected to") {
 				fmt.Printf("Successfully switched to standard port %s\n", standardAddress)
-				
+
 				// Disconnect from the original port
 				fmt.Printf("Disconnecting from temporary port %s...\n", ipAndPort)
 				adb.ExecuteGlobalCommand(adbPath, "disconnect", ipAndPort)
-				
+
 				return nil
 			} else {
 				fmt.Printf("Warning: failed to connect to standard port, keeping original connection\n")
 			}
 		}
-		
+
 		// Clean up any stale mDNS WiFi connections after successful connection
 		CleanupStaleWiFiConnections(cfg)
-		
+
 		return nil
 	}
-	
+
 	// Log the actual error for debugging
 	if err != nil {
 		fmt.Printf("Connection command failed: %v\n", err)
 	} else {
 		fmt.Printf("Connection rejected: %s\n", strings.TrimSpace(output))
 	}
-	
+
 	return fmt.Errorf("failed to connect to %s. Device may need pairing first", ipAndPort)
 }
 
@@ -83,17 +83,17 @@ func pairAndConnect(cfg *config.Config, ip string, pairingPort int) error {
 	adbPath := cfg.GetADBPath()
 	pairingAddress := fmt.Sprintf("%s:%d", ip, pairingPort)
 	defaultAddress := fmt.Sprintf("%s:%d", ip, DefaultWiFiPort)
-	
+
 	fmt.Printf("Attempting to pair with %s...\n", pairingAddress)
-	
+
 	// Step 1: Connect to the pairing port
 	err := adb.ExecuteGlobalCommand(adbPath, "connect", pairingAddress)
 	if err != nil {
 		return fmt.Errorf("failed to connect for pairing: %w", err)
 	}
-	
+
 	time.Sleep(1 * time.Second)
-	
+
 	// Step 2: Enable TCP/IP mode on the default port
 	fmt.Printf("Enabling TCP/IP mode on port %d...\n", DefaultWiFiPort)
 	err = adb.ExecuteCommand(adbPath, pairingAddress, "tcpip", strconv.Itoa(DefaultWiFiPort))
@@ -102,9 +102,9 @@ func pairAndConnect(cfg *config.Config, ip string, pairingPort int) error {
 		adb.ExecuteGlobalCommand(adbPath, "disconnect", pairingAddress)
 		return fmt.Errorf("failed to enable TCP/IP mode: %w", err)
 	}
-	
+
 	time.Sleep(1 * time.Second)
-	
+
 	// Step 3: Connect to the default port
 	fmt.Printf("Connecting to %s...\n", defaultAddress)
 	err = adb.ExecuteGlobalCommand(adbPath, "connect", defaultAddress)
@@ -113,16 +113,16 @@ func pairAndConnect(cfg *config.Config, ip string, pairingPort int) error {
 		adb.ExecuteGlobalCommand(adbPath, "disconnect", pairingAddress)
 		return fmt.Errorf("failed to connect to default port: %w", err)
 	}
-	
+
 	time.Sleep(1 * time.Second)
-	
+
 	// Step 4: Disconnect from the pairing port
 	fmt.Printf("Disconnecting from pairing port...\n")
 	err = adb.ExecuteGlobalCommand(adbPath, "disconnect", pairingAddress)
 	if err != nil {
 		fmt.Printf("Warning: failed to disconnect from pairing port: %v\n", err)
 	}
-	
+
 	fmt.Printf("Successfully paired and connected to %s\n", defaultAddress)
 	return nil
 }
@@ -134,21 +134,21 @@ func DisconnectWiFi(cfg *config.Config, ipAndPort string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// If no port specified, default to our static port 4444
 	if port == 0 {
 		port = DefaultWiFiPort
 		ipAndPort = fmt.Sprintf("%s:%d", ip, port)
 	}
-	
+
 	fmt.Printf("Disconnecting from %s...\n", ipAndPort)
-	
+
 	// Check what devices are currently connected first
 	output, err := adb.ExecuteGlobalCommandWithOutput(adbPath, "devices")
 	if err == nil {
 		fmt.Printf("Currently connected devices:\n%s\n", output)
 	}
-	
+
 	err = adb.ExecuteGlobalCommand(adbPath, "disconnect", ipAndPort)
 	if err != nil {
 		// Check if the error is because the device wasn't connected
@@ -157,25 +157,25 @@ func DisconnectWiFi(cfg *config.Config, ipAndPort string) error {
 		}
 		return fmt.Errorf("failed to disconnect from %s: %w", ipAndPort, err)
 	}
-	
+
 	fmt.Printf("Disconnected from %s\n", ipAndPort)
-	
+
 	// Clean up any stale mDNS WiFi connections
 	CleanupStaleWiFiConnections(cfg)
-	
+
 	return nil
 }
 
 // CleanupStaleWiFiConnections removes stale mDNS WiFi connections
 func CleanupStaleWiFiConnections(cfg *config.Config) {
 	adbPath := cfg.GetADBPath()
-	
+
 	// Get current devices list
 	output, err := adb.ExecuteGlobalCommandWithOutput(adbPath, "devices")
 	if err != nil {
 		return
 	}
-	
+
 	// Find and disconnect from mDNS WiFi entries
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -210,6 +210,6 @@ func ParseIPAndPort(input string) (string, int, error) {
 		}
 		return parts[0], port, nil
 	}
-	
+
 	return "", 0, fmt.Errorf("invalid IP address format: %s", input)
 }

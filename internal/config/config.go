@@ -7,9 +7,9 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	AndroidHome     string
-	MediaPath       string
-	ADBStaticPort   int
+	AndroidHome   string
+	MediaPath     string
+	ADBStaticPort int
 }
 
 // NewConfig creates a new configuration with default values

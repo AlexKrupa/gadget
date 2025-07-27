@@ -13,7 +13,7 @@ type SettingType string
 
 const (
 	SettingTypeDPI        SettingType = "dpi"
-	SettingTypeFontSize   SettingType = "fontsize" 
+	SettingTypeFontSize   SettingType = "fontsize"
 	SettingTypeScreenSize SettingType = "screensize"
 )
 
@@ -55,7 +55,7 @@ func (h *dpiHandler) GetInfo(cfg *config.Config, device adb.Device) (*SettingInf
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &SettingInfo{
 		Type:        SettingTypeDPI,
 		DisplayName: "DPI",
@@ -89,7 +89,7 @@ func (h *fontSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*Setti
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &SettingInfo{
 		Type:        SettingTypeFontSize,
 		DisplayName: "Font Size",
@@ -123,7 +123,7 @@ func (h *screenSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*Set
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &SettingInfo{
 		Type:        SettingTypeScreenSize,
 		DisplayName: "Screen Size",
@@ -142,12 +142,12 @@ func (h *screenSizeHandler) ValidateInput(value string) error {
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid screen size format: %s (expected format: 1080x1920)", value)
 	}
-	
+
 	for _, part := range parts {
 		if _, err := strconv.Atoi(part); err != nil {
 			return fmt.Errorf("invalid screen size format: %s (both width and height must be numbers)", value)
 		}
 	}
-	
+
 	return nil
 }

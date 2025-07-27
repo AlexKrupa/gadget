@@ -18,9 +18,9 @@ type Device struct {
 	Model       string
 	DeviceType  string
 	TransportID string
-	
+
 	// Extended info (populated lazily)
-	BatteryLevel   int    // -1 if unknown
+	BatteryLevel   int // -1 if unknown
 	AndroidVersion string
 	ScreenRes      string
 }
@@ -64,7 +64,7 @@ func (d Device) String() string {
 	// Check if this is an emulator
 	if strings.HasPrefix(d.Serial, "emulator-") {
 		var details []string
-		
+
 		// Try to get AVD display name first
 		avdDisplayName := getAVDDisplayNameForEmulator(d.Serial)
 		if avdDisplayName != "" {
@@ -83,14 +83,14 @@ func (d Device) String() string {
 				details = append(details, productName)
 			}
 		}
-		
+
 		details = append(details, "Emulator")
-		
+
 		if len(details) > 0 {
 			return fmt.Sprintf("%s (%s)", d.Serial, strings.Join(details, " • "))
 		}
 	}
-	
+
 	// Regular device formatting
 	if d.Model != "" && d.Product != "" {
 		return fmt.Sprintf("%s (%s - %s)", d.Serial, d.Model, d.Product)
@@ -108,7 +108,7 @@ func GetConnectedDevices(adbPath string) ([]Device, error) {
 
 	var devices []Device
 	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	
+
 	// Skip the header line "List of devices attached"
 	if scanner.Scan() {
 		// Skip header
@@ -162,7 +162,7 @@ func parseDeviceLine(line string) *Device {
 func ExecuteCommand(adbPath, deviceSerial string, args ...string) error {
 	cmdArgs := []string{"-s", deviceSerial}
 	cmdArgs = append(cmdArgs, args...)
-	
+
 	cmd := exec.Command(adbPath, cmdArgs...)
 	return cmd.Run()
 }
@@ -184,7 +184,7 @@ func ExecuteGlobalCommandWithOutput(adbPath string, args ...string) (string, err
 func ExecuteCommandWithOutput(adbPath, deviceSerial string, args ...string) (string, error) {
 	cmdArgs := []string{"-s", deviceSerial}
 	cmdArgs = append(cmdArgs, args...)
-	
+
 	cmd := exec.Command(adbPath, cmdArgs...)
 	output, err := cmd.Output()
 	return string(output), err
@@ -204,14 +204,14 @@ func getDisplayNameFromAVDName(avdName string) string {
 	if err != nil {
 		return ""
 	}
-	
+
 	configPath := filepath.Join(homeDir, ".android", "avd", avdName+".avd", "config.ini")
 	file, err := os.Open(configPath)
 	if err != nil {
 		return ""
 	}
 	defer file.Close()
-	
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -219,7 +219,7 @@ func getDisplayNameFromAVDName(avdName string) string {
 			return strings.TrimPrefix(line, "avd.ini.displayname = ")
 		}
 	}
-	
+
 	return ""
 }
 
@@ -228,7 +228,7 @@ func (d *Device) LoadExtendedInfo(adbPath string) {
 	if d.Status != "device" {
 		return // Only load info for connected devices
 	}
-	
+
 	// Load battery level
 	if batteryOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "dumpsys", "battery"); err == nil {
 		lines := strings.Split(strings.TrimSpace(batteryOutput), "\n")
@@ -248,12 +248,12 @@ func (d *Device) LoadExtendedInfo(adbPath string) {
 	if d.BatteryLevel == 0 {
 		d.BatteryLevel = -1 // Unknown
 	}
-	
+
 	// Load Android version
 	if versionOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "getprop", "ro.build.version.release"); err == nil {
 		d.AndroidVersion = strings.TrimSpace(versionOutput)
 	}
-	
+
 	// Load screen resolution
 	if resOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "wm", "size"); err == nil {
 		lines := strings.Split(strings.TrimSpace(resOutput), "\n")
@@ -272,11 +272,11 @@ func (d *Device) LoadExtendedInfo(adbPath string) {
 // GetExtendedInfo returns a formatted string with extended device information
 func (d Device) GetExtendedInfo() string {
 	var info []string
-	
+
 	if d.AndroidVersion != "" {
 		info = append(info, fmt.Sprintf("Android %s", d.AndroidVersion))
 	}
-	
+
 	if d.BatteryLevel >= 0 {
 		batteryIcon := "🔋"
 		if d.BatteryLevel < 20 {
@@ -286,14 +286,14 @@ func (d Device) GetExtendedInfo() string {
 		}
 		info = append(info, fmt.Sprintf("%s %d%%", batteryIcon, d.BatteryLevel))
 	}
-	
+
 	if d.ScreenRes != "" {
 		info = append(info, fmt.Sprintf("📱 %s", d.ScreenRes))
 	}
-	
+
 	if len(info) == 0 {
 		return ""
 	}
-	
+
 	return strings.Join(info, " • ")
 }

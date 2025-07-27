@@ -20,11 +20,11 @@ func shortenHomePath(path string) string {
 	if err != nil {
 		return path
 	}
-	
+
 	if strings.HasPrefix(path, homeDir) {
 		return strings.Replace(path, homeDir, "~", 1)
 	}
-	
+
 	return path
 }
 
@@ -130,7 +130,7 @@ func takeScreenshot(cfg *config.Config, device adb.Device) tea.Cmd {
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
 		filename := fmt.Sprintf("android-img-%s.png", timestamp)
 		localPath := filepath.Join(cfg.MediaPath, filename)
-		
+
 		// Execute the command and build detailed message
 		err := commands.TakeScreenshot(cfg, device)
 		if err != nil {
@@ -139,7 +139,7 @@ func takeScreenshot(cfg *config.Config, device adb.Device) tea.Cmd {
 				message: fmt.Sprintf("Screenshot failed on %s: %s", device.Serial, err.Error()),
 			}
 		}
-		
+
 		message := fmt.Sprintf("Screenshot captured on %s\n%s", device.Serial, shortenHomePath(localPath))
 		return screenshotDoneMsg{
 			success: true,
@@ -163,8 +163,8 @@ func takeDayNightScreenshots(cfg *config.Config, device adb.Device) tea.Cmd {
 		filenameNight := fmt.Sprintf("android-img-%s-night.png", timestamp)
 		localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
 		localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
-		
-		message := fmt.Sprintf("Day-night screenshots captured on %s\nDay: %s\nNight: %s", 
+
+		message := fmt.Sprintf("Day-night screenshots captured on %s\nDay: %s\nNight: %s",
 			device.Serial, shortenHomePath(localPathDay), shortenHomePath(localPathNight))
 		return dayNightScreenshotDoneMsg{
 			success: true,
@@ -211,7 +211,7 @@ func getCurrentSetting(cfg *config.Config, device adb.Device, settingType comman
 				err:         fmt.Errorf("unknown setting type: %s", settingType),
 			}
 		}
-		
+
 		settingInfo, err := handler.GetInfo(cfg, device)
 		return settingLoadedMsg{
 			settingInfo: settingInfo,
@@ -231,7 +231,7 @@ func changeSetting(cfg *config.Config, device adb.Device, settingType commands.S
 				message:     "Unknown setting type: " + string(settingType),
 			}
 		}
-		
+
 		// Validate input first
 		if err := handler.ValidateInput(value); err != nil {
 			return settingChangedMsg{
@@ -240,7 +240,7 @@ func changeSetting(cfg *config.Config, device adb.Device, settingType commands.S
 				message:     err.Error(),
 			}
 		}
-		
+
 		// Apply the setting
 		err := handler.SetValue(cfg, device, value)
 		if err != nil {
@@ -250,7 +250,7 @@ func changeSetting(cfg *config.Config, device adb.Device, settingType commands.S
 				message:     err.Error(),
 			}
 		}
-		
+
 		return settingChangedMsg{
 			settingType: settingType,
 			success:     true,
@@ -269,10 +269,10 @@ func connectWiFi(cfg *config.Config, ipAndPort string) tea.Cmd {
 				message: err.Error(),
 			}
 		}
-		
+
 		// Small delay to ensure device list is updated
 		time.Sleep(500 * time.Millisecond)
-		
+
 		return wifiConnectDoneMsg{
 			success: true,
 			message: fmt.Sprintf("WiFi device connected: %s", ipAndPort),
@@ -290,10 +290,10 @@ func disconnectWiFi(cfg *config.Config, ipAndPort string) tea.Cmd {
 				message: err.Error(),
 			}
 		}
-		
+
 		// Small delay to ensure device list is updated
 		time.Sleep(500 * time.Millisecond)
-		
+
 		return wifiDisconnectDoneMsg{
 			success: true,
 			message: fmt.Sprintf("WiFi device disconnected: %s", ipAndPort),
@@ -311,7 +311,7 @@ func pairWiFi(cfg *config.Config, ipAndPort, pairingCode string) tea.Cmd {
 				message: err.Error(),
 			}
 		}
-		
+
 		return wifiPairDoneMsg{
 			success: true,
 			message: fmt.Sprintf("WiFi device paired and connected: %s", ipAndPort),

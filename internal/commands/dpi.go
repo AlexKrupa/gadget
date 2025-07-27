@@ -22,14 +22,14 @@ func GetCurrentDPI(cfg *config.Config, device adb.Device) (*DPIInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current DPI: %w", err)
 	}
-	
+
 	// Parse output which can contain:
 	// Physical density: 420
 	// Override density: 480
 	lines := strings.Split(strings.TrimSpace(output), "\n")
-	
+
 	info := &DPIInfo{}
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, "Override density:") {
 			parts := strings.Fields(line)
@@ -49,18 +49,18 @@ func GetCurrentDPI(cfg *config.Config, device adb.Device) (*DPIInfo, error) {
 			}
 		}
 	}
-	
+
 	// Set current to override if it exists, otherwise physical
 	if info.Override > 0 {
 		info.Current = info.Override
 	} else {
 		info.Current = info.Physical
 	}
-	
+
 	if info.Physical == 0 {
 		return nil, fmt.Errorf("could not parse DPI from output: %s", output)
 	}
-	
+
 	return info, nil
 }
 
@@ -71,7 +71,7 @@ func SetDPI(cfg *config.Config, device adb.Device, dpi int) error {
 	if err != nil {
 		return fmt.Errorf("failed to set DPI to %d: %w", dpi, err)
 	}
-	
+
 	fmt.Printf("DPI changed to %d on device %s\n", dpi, device.Serial)
 	return nil
 }
@@ -83,7 +83,7 @@ func ResetDPI(cfg *config.Config, device adb.Device) error {
 	if err != nil {
 		return fmt.Errorf("failed to reset DPI: %w", err)
 	}
-	
+
 	fmt.Printf("DPI reset to default on device %s\n", device.Serial)
 	return nil
 }

@@ -30,7 +30,7 @@ func main() {
 	// Get available commands for help text
 	availableCommands := tui.GetAvailableCommandNames()
 	commandHelp := fmt.Sprintf("Command to execute directly (%s)", strings.Join(availableCommands, ", "))
-	
+
 	// Parse command line arguments
 	command := flag.String("command", "", commandHelp)
 	deviceSerial := flag.String("device", "", "Device serial for device-specific commands")
@@ -41,7 +41,7 @@ func main() {
 
 	// Get remaining arguments after flags
 	args := flag.Args()
-	
+
 	// Determine command from either flag or first positional argument
 	var cmdToExecute string
 	if *command != "" {
@@ -90,7 +90,7 @@ func parsePositionalArgs(command string, args []string, flagDevice, flagIP, flag
 		code:   flagCode,
 		value:  flagValue,
 	}
-	
+
 	switch command {
 	case "pair-wifi":
 		// pair-wifi [ip] [code]
@@ -130,7 +130,7 @@ func parsePositionalArgs(command string, args []string, flagDevice, flagIP, flag
 			result.device = args[0]
 		}
 	}
-	
+
 	return result
 }
 
@@ -187,11 +187,11 @@ func selectDevice(cfg *config.Config, deviceSerial string) (adb.Device, error) {
 	if err != nil {
 		return adb.Device{}, err
 	}
-	
+
 	if len(devices) == 0 {
 		return adb.Device{}, fmt.Errorf("no devices connected")
 	}
-	
+
 	// If device serial specified, find it
 	if deviceSerial != "" {
 		for _, device := range devices {
@@ -201,12 +201,12 @@ func selectDevice(cfg *config.Config, deviceSerial string) (adb.Device, error) {
 		}
 		return adb.Device{}, fmt.Errorf("device with serial %s not found", deviceSerial)
 	}
-	
+
 	// If only one device, use it
 	if len(devices) == 1 {
 		return devices[0], nil
 	}
-	
+
 	// Multiple devices, require explicit selection
 	fmt.Println("Multiple devices connected. Please specify device with -device flag:")
 	for _, device := range devices {
@@ -220,7 +220,7 @@ func executeScreenshotDirect(cfg *config.Config, deviceSerial string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Taking screenshot on device: %s\n", device.Serial)
 	return commands.TakeScreenshot(cfg, device)
 }
@@ -230,7 +230,7 @@ func executeScreenshotDayNightDirect(cfg *config.Config, deviceSerial string) er
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Taking day-night screenshots on device: %s\n", device.Serial)
 	return commands.TakeDayNightScreenshots(cfg, device)
 }
@@ -240,20 +240,20 @@ func executeScreenRecordDirect(cfg *config.Config, deviceSerial string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Starting screen recording on device: %s\n", device.Serial)
 	fmt.Println("Press Ctrl+C to stop recording...")
-	
+
 	recording, err := commands.StartScreenRecord(cfg, device)
 	if err != nil {
 		return err
 	}
-	
+
 	// Wait for interrupt signal
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
-	
+
 	fmt.Println("\nStopping recording...")
 	return recording.StopAndSave()
 }
@@ -262,17 +262,17 @@ func executeChangeDPIDirect(cfg *config.Config, deviceSerial, value string) erro
 	if value == "" {
 		return fmt.Errorf("change-dpi requires -value (DPI number)")
 	}
-	
+
 	device, err := selectDevice(cfg, deviceSerial)
 	if err != nil {
 		return err
 	}
-	
+
 	handler := commands.GetSettingHandler(commands.SettingTypeDPI)
 	if err := handler.ValidateInput(value); err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Changing DPI to %s on device: %s\n", value, device.Serial)
 	return handler.SetValue(cfg, device, value)
 }
@@ -281,17 +281,17 @@ func executeChangeFontSizeDirect(cfg *config.Config, deviceSerial, value string)
 	if value == "" {
 		return fmt.Errorf("change-font-size requires -value (font scale number)")
 	}
-	
+
 	device, err := selectDevice(cfg, deviceSerial)
 	if err != nil {
 		return err
 	}
-	
+
 	handler := commands.GetSettingHandler(commands.SettingTypeFontSize)
 	if err := handler.ValidateInput(value); err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Changing font size to %s on device: %s\n", value, device.Serial)
 	return handler.SetValue(cfg, device, value)
 }
@@ -300,17 +300,17 @@ func executeChangeScreenSizeDirect(cfg *config.Config, deviceSerial, value strin
 	if value == "" {
 		return fmt.Errorf("change-screen-size requires -value (WIDTHxHEIGHT)")
 	}
-	
+
 	device, err := selectDevice(cfg, deviceSerial)
 	if err != nil {
 		return err
 	}
-	
+
 	handler := commands.GetSettingHandler(commands.SettingTypeScreenSize)
 	if err := handler.ValidateInput(value); err != nil {
 		return err
 	}
-	
+
 	fmt.Printf("Changing screen size to %s on device: %s\n", value, device.Serial)
 	return handler.SetValue(cfg, device, value)
 }
@@ -320,11 +320,11 @@ func executeLaunchEmulatorDirect(cfg *config.Config, avdName string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if len(avds) == 0 {
 		return fmt.Errorf("no AVDs found")
 	}
-	
+
 	// If AVD name specified, find it
 	if avdName != "" {
 		for _, avd := range avds {
@@ -335,13 +335,13 @@ func executeLaunchEmulatorDirect(cfg *config.Config, avdName string) error {
 		}
 		return fmt.Errorf("AVD with name %s not found", avdName)
 	}
-	
+
 	// If only one AVD, use it
 	if len(avds) == 1 {
 		fmt.Printf("Launching emulator: %s\n", avds[0].Name)
 		return emulator.LaunchEmulator(cfg, avds[0])
 	}
-	
+
 	// Multiple AVDs, require explicit selection
 	fmt.Println("Multiple AVDs available. Please specify AVD with -value flag:")
 	for _, avd := range avds {

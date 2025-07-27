@@ -79,16 +79,16 @@ func getAvailableCommands() []Command {
 func getCommandCategories() []CommandCategory {
 	commands := getAvailableCommands()
 	categoryMap := make(map[string][]Command)
-	
+
 	// Group commands by category
 	for _, cmd := range commands {
 		categoryMap[cmd.Category] = append(categoryMap[cmd.Category], cmd)
 	}
-	
+
 	// Return categories in desired order
 	categoryOrder := []string{"Media", "Device settings", "WiFi", "Devices/emulators"}
 	var categories []CommandCategory
-	
+
 	for _, categoryName := range categoryOrder {
 		if cmds, exists := categoryMap[categoryName]; exists {
 			categories = append(categories, CommandCategory{
@@ -97,7 +97,7 @@ func getCommandCategories() []CommandCategory {
 			})
 		}
 	}
-	
+
 	return categories
 }
 
@@ -113,41 +113,41 @@ func GetAvailableCommandNames() []string {
 
 // Model represents the TUI state
 type Model struct {
-	config            *config.Config
-	devices           []adb.Device
-	avds              []emulator.AVD
-	selectedDevice    int
-	selectedEmulator  int
-	selectedCommand   int
+	config           *config.Config
+	devices          []adb.Device
+	avds             []emulator.AVD
+	selectedDevice   int
+	selectedEmulator int
+	selectedCommand  int
 	mode             Mode
 	err              error
 	successMsg       string
 	quitting         bool
-	
+
 	// Log system
-	logHistory       []LogEntry
-	maxLogEntries    int
-	loading             bool
-	takingScreenshot    bool
-	takingDayNightShots bool
-	recordingScreen     bool
-	activeRecording  *commands.ScreenRecording
-	textInput        string
-	textInputPrompt  string
-	textInputAction  string
+	logHistory              []LogEntry
+	maxLogEntries           int
+	loading                 bool
+	takingScreenshot        bool
+	takingDayNightShots     bool
+	recordingScreen         bool
+	activeRecording         *commands.ScreenRecording
+	textInput               string
+	textInputPrompt         string
+	textInputAction         string
 	selectedDeviceForAction adb.Device
-	currentSettingInfo *commands.SettingInfo
-	currentSettingType commands.SettingType
-	connectingWiFi     bool
-	disconnectingWiFi  bool
-	pairingWiFi        bool
-	pairingAddress     string // Store pairing address between input steps
+	currentSettingInfo      *commands.SettingInfo
+	currentSettingType      commands.SettingType
+	connectingWiFi          bool
+	disconnectingWiFi       bool
+	pairingWiFi             bool
+	pairingAddress          string // Store pairing address between input steps
 
 	// Command search fields
-	searchFilter     string
-	filteredCommands []Command
+	searchFilter         string
+	filteredCommands     []Command
 	selectedCommandIndex int
-	
+
 	// Progress tracking
 	operationStartTime time.Time
 	progressTicker     int // For animated progress indicators
@@ -156,16 +156,16 @@ type Model struct {
 // NewModel creates a new TUI model
 func NewModel(cfg *config.Config) Model {
 	m := Model{
-		config:           cfg,
-		mode:            ModeMenu,
-		selectedDevice:   0,
-		selectedEmulator: 0,
-		selectedCommand:  0,
-		loading:         true,
-		searchFilter:     "",
+		config:               cfg,
+		mode:                 ModeMenu,
+		selectedDevice:       0,
+		selectedEmulator:     0,
+		selectedCommand:      0,
+		loading:              true,
+		searchFilter:         "",
 		selectedCommandIndex: 0,
-		logHistory:       make([]LogEntry, 0),
-		maxLogEntries:    5, // Keep last 5 log entries
+		logHistory:           make([]LogEntry, 0),
+		maxLogEntries:        5, // Keep last 5 log entries
 	}
 	m.filteredCommands = m.filterCommands()
 	return m
@@ -175,20 +175,20 @@ func NewModel(cfg *config.Config) Model {
 func (m *Model) addLogEntry(message string, logType LogType) {
 	// Normalize indentation and whitespace
 	normalizedMessage := strings.TrimSpace(strings.ReplaceAll(message, "\t", "  "))
-	
+
 	entry := LogEntry{
 		Message:   normalizedMessage,
 		Type:      logType,
 		Timestamp: time.Now(),
 	}
-	
+
 	m.logHistory = append(m.logHistory, entry)
-	
+
 	// Keep only the last maxLogEntries
 	if len(m.logHistory) > m.maxLogEntries {
 		m.logHistory = m.logHistory[len(m.logHistory)-m.maxLogEntries:]
 	}
-	
+
 	// Clear old success message system for backward compatibility
 	m.successMsg = ""
 	m.err = nil
@@ -481,8 +481,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		m.progressTicker++
 		// Continue ticking if any operation is active
-		if m.loading || m.takingScreenshot || m.takingDayNightShots || m.recordingScreen || 
-		   m.connectingWiFi || m.disconnectingWiFi || m.pairingWiFi {
+		if m.loading || m.takingScreenshot || m.takingDayNightShots || m.recordingScreen ||
+			m.connectingWiFi || m.disconnectingWiFi || m.pairingWiFi {
 			return m, doTick()
 		}
 		return m, nil
@@ -860,7 +860,7 @@ func (m Model) View() string {
 		Render("Android Tools CLI")
 
 	s.WriteString(header + "\n")
-	
+
 	// Status bar
 	statusBar := m.renderStatusBar()
 	if statusBar != "" {
@@ -873,7 +873,7 @@ func (m Model) View() string {
 		errorStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true)
-		s.WriteString(errorStyle.Render("Error: " + m.err.Error()) + "\n\n")
+		s.WriteString(errorStyle.Render("Error: "+m.err.Error()) + "\n\n")
 	}
 
 	switch m.mode {
@@ -930,14 +930,14 @@ func (m Model) renderMainMenu() string {
 		// Show categorized commands when no filter
 		categories := getCommandCategories()
 		currentIndex := 0
-		
+
 		for _, category := range categories {
 			// Category header
 			categoryStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("86")).
 				Bold(true)
 			s.WriteString(categoryStyle.Render(category.Name) + "\n")
-			
+
 			// Commands in category
 			for _, cmd := range category.Commands {
 				cursor := "  "
@@ -958,13 +958,13 @@ func (m Model) renderMainMenu() string {
 			}
 			s.WriteString(fmt.Sprintf("%s%s\n", cursor, cmd.Name))
 		}
-		
+
 		if len(m.filteredCommands) == 0 {
 			s.WriteString("  No matching commands\n")
 		}
 		s.WriteString("\n")
 	}
-	
+
 	// Show description of selected command
 	if len(m.filteredCommands) > 0 && m.selectedCommandIndex < len(m.filteredCommands) {
 		selectedCmd := m.filteredCommands[m.selectedCommandIndex]
@@ -973,9 +973,9 @@ func (m Model) renderMainMenu() string {
 			Italic(true)
 		s.WriteString(descStyle.Render(fmt.Sprintf("→ %s", selectedCmd.Description)) + "\n\n")
 	}
-	
+
 	s.WriteString(fmt.Sprintf("Connected devices: %d\n", len(m.devices)))
-	
+
 	for _, device := range m.devices {
 		s.WriteString(fmt.Sprintf("  %s %s\n", device.GetStatusIndicator(), device.String()))
 	}
@@ -1051,12 +1051,12 @@ func (m Model) renderEmulatorSelection() string {
 // renderStatusBar renders the status bar showing filter, device count, and active operations
 func (m Model) renderStatusBar() string {
 	var statusItems []string
-	
+
 	// Device count with status indicators
 	if len(m.devices) > 0 {
 		var deviceCounts []string
 		physicalCount, emulatorCount, wifiCount := 0, 0, 0
-		
+
 		for _, device := range m.devices {
 			switch device.GetConnectionType() {
 			case adb.DeviceTypePhysical:
@@ -1067,7 +1067,7 @@ func (m Model) renderStatusBar() string {
 				wifiCount++
 			}
 		}
-		
+
 		if physicalCount > 0 {
 			deviceCounts = append(deviceCounts, fmt.Sprintf("🔵 %d", physicalCount))
 		}
@@ -1077,14 +1077,14 @@ func (m Model) renderStatusBar() string {
 		if wifiCount > 0 {
 			deviceCounts = append(deviceCounts, fmt.Sprintf("🟢 %d", wifiCount))
 		}
-		
+
 		if len(deviceCounts) > 0 {
 			statusItems = append(statusItems, fmt.Sprintf("Devices: %s", strings.Join(deviceCounts, " ")))
 		}
 	} else {
 		statusItems = append(statusItems, "No devices connected")
 	}
-	
+
 	// Active filter
 	if m.searchFilter != "" {
 		statusItems = append(statusItems, fmt.Sprintf("Filter: '%s'", m.searchFilter))
@@ -1094,7 +1094,7 @@ func (m Model) renderStatusBar() string {
 			statusItems = append(statusItems, "No matching commands")
 		}
 	}
-	
+
 	// Active operations
 	var activeOps []string
 	if m.takingScreenshot {
@@ -1115,21 +1115,21 @@ func (m Model) renderStatusBar() string {
 	if m.pairingWiFi {
 		activeOps = append(activeOps, "📶 Pairing")
 	}
-	
+
 	if len(activeOps) > 0 {
 		statusItems = append(statusItems, fmt.Sprintf("Active: %s", strings.Join(activeOps, ", ")))
 	}
-	
+
 	if len(statusItems) == 0 {
 		return ""
 	}
-	
+
 	// Style the status bar
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245")).
 		Background(lipgloss.Color("236")).
 		Padding(0, 1)
-	
+
 	return statusStyle.Render(strings.Join(statusItems, " • "))
 }
 
@@ -1138,7 +1138,7 @@ func (m Model) getProgressText(operation string) string {
 	// Animated spinner
 	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	spinner := spinners[m.progressTicker%len(spinners)]
-	
+
 	// Calculate elapsed time
 	elapsed := time.Since(m.operationStartTime)
 	var timeStr string
@@ -1147,7 +1147,7 @@ func (m Model) getProgressText(operation string) string {
 	} else {
 		timeStr = fmt.Sprintf("(%.1fs)", elapsed.Seconds())
 	}
-	
+
 	return fmt.Sprintf("%s %s %s", spinner, operation, timeStr)
 }
 
@@ -1156,13 +1156,13 @@ func (m Model) renderLogHistory() string {
 	if len(m.logHistory) == 0 {
 		return ""
 	}
-	
+
 	var logLines []string
-	
+
 	for _, entry := range m.logHistory {
 		var style lipgloss.Style
 		var prefix string
-		
+
 		switch entry.Type {
 		case LogTypeSuccess:
 			style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")).Bold(true)
@@ -1174,10 +1174,10 @@ func (m Model) renderLogHistory() string {
 			style = lipgloss.NewStyle().Foreground(lipgloss.Color("86"))
 			prefix = "•"
 		}
-		
+
 		// Format timestamp (show only time for recent entries)
 		timeStr := entry.Timestamp.Format("15:04:05")
-		
+
 		// Handle multi-line messages by indenting continuation lines
 		lines := strings.Split(entry.Message, "\n")
 		for i, line := range lines {
@@ -1192,58 +1192,58 @@ func (m Model) renderLogHistory() string {
 			}
 		}
 	}
-	
+
 	// Join all lines and add some spacing
 	logStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("238")).
 		Padding(0, 1).
 		Margin(0, 0)
-	
+
 	return logStyle.Render(strings.Join(logLines, "\n"))
 }
 
 // renderProgressIndicators renders all active progress indicators
 func (m Model) renderProgressIndicators() string {
 	var indicators []string
-	
+
 	loadingStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214")).
 		Bold(true)
-	
+
 	if m.takingScreenshot {
 		progressText := m.getProgressText("Taking screenshot")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
-	
+
 	if m.takingDayNightShots {
 		progressText := m.getProgressText("Taking day-night screenshots")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
-	
+
 	if m.recordingScreen {
 		progressText := m.getProgressText("Recording screen • Press Esc to stop")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
-	
+
 	if m.connectingWiFi {
 		progressText := m.getProgressText("Connecting to WiFi device")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
-	
+
 	if m.disconnectingWiFi {
 		progressText := m.getProgressText("Disconnecting from WiFi device")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
-	
+
 	if m.pairingWiFi {
 		progressText := m.getProgressText("Pairing with WiFi device")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
-	
+
 	if len(indicators) == 0 {
 		return ""
 	}
-	
+
 	return strings.Join(indicators, "\n")
 }
