@@ -12,8 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
-
 // loadDevices loads connected ADB devices asynchronously
 func loadDevices(adbPath string) tea.Cmd {
 	return func() tea.Msg {
@@ -54,7 +52,7 @@ const (
 func executeScreenshotOperation(cfg *config.Config, device adb.Device, operation ScreenshotOperation) tea.Cmd {
 	return func() tea.Msg {
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
-		
+
 		switch operation {
 		case ScreenshotSingle:
 			err := commands.TakeScreenshot(cfg, device)
@@ -64,28 +62,28 @@ func executeScreenshotOperation(cfg *config.Config, device adb.Device, operation
 					message: fmt.Sprintf("Screenshot failed on %s: %s", device.Serial, err.Error()),
 				}
 			}
-			
+
 			filename := fmt.Sprintf("android-img-%s.png", timestamp)
 			localPath := filepath.Join(cfg.MediaPath, filename)
 			message := fmt.Sprintf("Screenshot captured on %s\n%s", device.Serial, shortenHomePath(localPath))
 			return screenshotDoneMsg{success: true, message: message}
-			
+
 		case ScreenshotDayNight:
 			err := commands.TakeDayNightScreenshots(cfg, device)
 			if err != nil {
 				return dayNightScreenshotDoneMsg{success: false, message: err.Error()}
 			}
-			
+
 			filenameDay := fmt.Sprintf("android-img-%s-day.png", timestamp)
 			filenameNight := fmt.Sprintf("android-img-%s-night.png", timestamp)
 			localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
 			localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
-			
+
 			message := fmt.Sprintf("Day-night screenshots captured on %s\nDay: %s\nNight: %s",
 				device.Serial, shortenHomePath(localPathDay), shortenHomePath(localPathNight))
 			return dayNightScreenshotDoneMsg{success: true, message: message}
 		}
-		
+
 		return nil // Should never reach here
 	}
 }

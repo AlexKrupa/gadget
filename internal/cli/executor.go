@@ -16,17 +16,17 @@ type CommandExecutor func(cfg *config.Config, deviceSerial, ip, code, value stri
 
 // CommandRegistry holds all available commands and their executors
 var CommandRegistry = map[string]CommandExecutor{
-	"screenshot":            executeScreenshot,
-	"screenshot-day-night":  executeScreenshotDayNight,
-	"screen-record":         executeScreenRecord,
-	"change-dpi":            executeChangeDPI,
-	"change-font-size":      executeChangeFontSize,
-	"change-screen-size":    executeChangeScreenSize,
-	"launch-emulator":       executeLaunchEmulator,
-	"pair-wifi":             executePairWiFi,
-	"connect-wifi":          executeConnectWiFi,
-	"disconnect-wifi":       executeDisconnectWiFi,
-	"refresh-devices":       executeRefreshDevices,
+	"screenshot":           executeScreenshot,
+	"screenshot-day-night": executeScreenshotDayNight,
+	"screen-record":        executeScreenRecord,
+	"change-dpi":           executeChangeDPI,
+	"change-font-size":     executeChangeFontSize,
+	"change-screen-size":   executeChangeScreenSize,
+	"launch-emulator":      executeLaunchEmulator,
+	"pair-wifi":            executePairWiFi,
+	"connect-wifi":         executeConnectWiFi,
+	"disconnect-wifi":      executeDisconnectWiFi,
+	"refresh-devices":      executeRefreshDevices,
 }
 
 // ExecuteCommand dispatches a command using the registry

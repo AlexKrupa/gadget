@@ -83,16 +83,16 @@ type ArgumentParser func(args []string, flags ParsedArgs) ParsedArgs
 
 // Command argument parsers
 var argumentParsers = map[string]ArgumentParser{
-	"pair-wifi":             parsePairWiFiArgs,
-	"connect-wifi":          parseWiFiArgs,
-	"disconnect-wifi":       parseWiFiArgs,
-	"change-dpi":            parseSettingArgs,
-	"change-font-size":      parseSettingArgs,
-	"change-screen-size":    parseSettingArgs,
-	"launch-emulator":       parseValueArgs,
-	"screenshot":            parseDeviceArgs,
-	"screenshot-day-night":  parseDeviceArgs,
-	"screen-record":         parseDeviceArgs,
+	"pair-wifi":            parsePairWiFiArgs,
+	"connect-wifi":         parseWiFiArgs,
+	"disconnect-wifi":      parseWiFiArgs,
+	"change-dpi":           parseSettingArgs,
+	"change-font-size":     parseSettingArgs,
+	"change-screen-size":   parseSettingArgs,
+	"launch-emulator":      parseValueArgs,
+	"screenshot":           parseDeviceArgs,
+	"screenshot-day-night": parseDeviceArgs,
+	"screen-record":        parseDeviceArgs,
 }
 
 // parsePositionalArgs parses positional arguments based on command type
@@ -167,4 +167,3 @@ func parseDeviceArgs(args []string, flags ParsedArgs) ParsedArgs {
 func executeDirectCommand(cfg *config.Config, command, deviceSerial, ip, code, value string) error {
 	return cli.ExecuteCommand(cfg, command, deviceSerial, ip, code, value)
 }
-
