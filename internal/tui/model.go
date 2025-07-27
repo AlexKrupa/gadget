@@ -6,6 +6,7 @@ import (
 	"adx/internal/config"
 	"adx/internal/emulator"
 	"adx/internal/tui/core"
+	"adx/internal/tui/features/media"
 	"fmt"
 	"sort"
 	"strings"
@@ -68,13 +69,12 @@ type Model struct {
 	quitting         bool
 
 	// Log system
-	logHistory              []LogEntry
-	maxLogEntries           int
-	loading                 bool
-	takingScreenshot        bool
-	takingDayNightShots     bool
-	recordingScreen         bool
-	activeRecording         *commands.ScreenRecording
+	logHistory    []LogEntry
+	maxLogEntries int
+	loading       bool
+
+	// Features
+	mediaFeature            *media.MediaFeature
 	textInput               string
 	textInputPrompt         string
 	textInputAction         string
@@ -109,6 +109,7 @@ func NewModel(cfg *config.Config) Model {
 		selectedCommandIndex: 0,
 		logHistory:           make([]LogEntry, 0),
 		maxLogEntries:        5, // Keep last 5 log entries
+		mediaFeature:         media.NewMediaFeature(cfg),
 	}
 	m.filteredCommands = m.filterCommands()
 	return m
@@ -312,8 +313,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 	case devicesLoadedMsg:
-		m.devices = msg.devices
-		m.err = msg.err
+		m.devices = msg.Devices
+		m.err = msg.Err
 		m.loading = false
 		if len(m.devices) == 0 && m.err == nil {
 			m.err = fmt.Errorf("no devices connected")
@@ -321,110 +322,110 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Don't clear success messages during auto-refresh
 		return m, nil
 	case avdsLoadedMsg:
-		m.avds = msg.avds
-		if msg.err != nil {
-			m.err = msg.err
+		m.avds = msg.Avds
+		if msg.Err != nil {
+			m.err = msg.Err
 			m.mode = ModeMenu
 		}
 		return m, nil
 	case screenshotDoneMsg:
-		m.takingScreenshot = false
-		if msg.success {
-			m.addSuccess(msg.message)
-		} else {
-			m.addError(fmt.Sprintf("Screenshot failed: %s", msg.message))
+		_, _, successMsg, errorMsg := m.mediaFeature.HandleScreenshotDone(msg)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
+		}
+		if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case dayNightScreenshotDoneMsg:
-		m.takingDayNightShots = false
-		if msg.success {
-			m.addSuccess(msg.message)
-		} else {
-			m.addError(fmt.Sprintf("Day-night screenshots failed: %s", msg.message))
+		_, _, successMsg, errorMsg := m.mediaFeature.HandleDayNightScreenshotDone(msg)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
+		}
+		if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case recordingStartedMsg:
-		if msg.err != nil {
-			m.recordingScreen = false
-			m.err = fmt.Errorf("failed to start recording: %s", msg.err.Error())
+		_, _, _, errorMsg := m.mediaFeature.HandleRecordingStarted(msg)
+		if errorMsg != "" {
+			m.err = fmt.Errorf(errorMsg)
 			m.successMsg = ""
-		} else {
-			m.activeRecording = msg.recording
 		}
 		return m, nil
 	case screenRecordDoneMsg:
-		m.recordingScreen = false
-		m.activeRecording = nil
-		if msg.success {
-			m.addSuccess(msg.message)
-		} else {
-			m.addError(fmt.Sprintf("Screen recording failed: %s", msg.message))
+		_, _, successMsg, errorMsg := m.mediaFeature.HandleScreenRecordDone(msg)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
+		}
+		if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case settingLoadedMsg:
-		if msg.err != nil {
-			m.err = fmt.Errorf("failed to get current setting: %s", msg.err.Error())
+		if msg.Err != nil {
+			m.err = fmt.Errorf("failed to get current setting: %s", msg.Err.Error())
 			m.mode = ModeMenu
 		} else {
-			m.currentSettingInfo = msg.settingInfo
-			m.currentSettingType = msg.settingInfo.Type
+			m.currentSettingInfo = msg.SettingInfo
+			m.currentSettingType = msg.SettingInfo.Type
 			m.mode = ModeTextInput
 
 			// Show both Default/Physical and Current values
 			displayInfo := fmt.Sprintf("Physical %s: %s\nCurrent %s: %s",
-				msg.settingInfo.DisplayName, msg.settingInfo.Default,
-				msg.settingInfo.DisplayName, msg.settingInfo.Current)
+				msg.SettingInfo.DisplayName, msg.SettingInfo.Default,
+				msg.SettingInfo.DisplayName, msg.SettingInfo.Current)
 
 			m.textInputPrompt = fmt.Sprintf("Device: %s\n%s\n\n%s",
-				m.selectedDeviceForAction.Serial, displayInfo, msg.settingInfo.InputPrompt)
+				m.selectedDeviceForAction.Serial, displayInfo, msg.SettingInfo.InputPrompt)
 		}
 		return m, nil
 	case settingChangedMsg:
-		if msg.success {
-			m.addSuccess(msg.message)
+		if msg.Success {
+			m.addSuccess(msg.Message)
 			// Refresh setting info to show updated values
-			return m, getCurrentSetting(m.config, m.selectedDeviceForAction, msg.settingType)
+			return m, getCurrentSetting(m.config, m.selectedDeviceForAction, msg.SettingType)
 		} else {
-			m.addError(fmt.Sprintf("Setting change failed: %s", msg.message))
+			m.addError(fmt.Sprintf("Setting change failed: %s", msg.Message))
 		}
 		return m, nil
 	case wifiConnectDoneMsg:
 		m.connectingWiFi = false
-		if msg.success {
-			m.addSuccess(msg.message)
+		if msg.Success {
+			m.addSuccess(msg.Message)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi connection
 			return m, loadDevices(m.config.GetADBPath())
 		} else {
-			m.addError(fmt.Sprintf("WiFi connection failed: %s", msg.message))
+			m.addError(fmt.Sprintf("WiFi connection failed: %s", msg.Message))
 		}
 		return m, nil
 	case wifiDisconnectDoneMsg:
 		m.disconnectingWiFi = false
-		if msg.success {
-			m.addSuccess(msg.message)
+		if msg.Success {
+			m.addSuccess(msg.Message)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi disconnection
 			return m, loadDevices(m.config.GetADBPath())
 		} else {
-			m.addError(fmt.Sprintf("WiFi disconnection failed: %s", msg.message))
+			m.addError(fmt.Sprintf("WiFi disconnection failed: %s", msg.Message))
 		}
 		return m, nil
 	case wifiPairDoneMsg:
 		m.pairingWiFi = false
-		if msg.success {
-			m.addSuccess(msg.message)
+		if msg.Success {
+			m.addSuccess(msg.Message)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi pairing
 			return m, loadDevices(m.config.GetADBPath())
 		} else {
-			m.addError(fmt.Sprintf("WiFi pairing failed: %s", msg.message))
+			m.addError(fmt.Sprintf("WiFi pairing failed: %s", msg.Message))
 		}
 		return m, nil
 	case tickMsg:
 		m.progressTicker++
 		// Continue ticking if any operation is active
-		if m.loading || m.takingScreenshot || m.takingDayNightShots || m.recordingScreen ||
+		if m.loading || m.mediaFeature.IsActive() ||
 			m.connectingWiFi || m.disconnectingWiFi || m.pairingWiFi {
 			return m, doTick()
 		}
@@ -440,7 +441,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleKeyPress processes keyboard input
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global key handling for active recording
-	if m.recordingScreen && msg.String() == "esc" {
+	if m.mediaFeature.IsRecording() && msg.String() == "esc" {
 		return m.stopRecording()
 	}
 
@@ -562,7 +563,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) executeScreenshot(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.clearLogs()
-	m.takingScreenshot = true
+	m.mediaFeature.StartScreenshot()
 	m.operationStartTime = time.Now()
 
 	return m, tea.Batch(takeScreenshot(m.config, device), doTick())
@@ -572,7 +573,7 @@ func (m Model) executeScreenshot(device adb.Device) (tea.Model, tea.Cmd) {
 func (m Model) executeDayNightScreenshots(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.clearLogs()
-	m.takingDayNightShots = true
+	m.mediaFeature.StartDayNightScreenshot()
 	m.operationStartTime = time.Now()
 
 	return m, tea.Batch(takeDayNightScreenshots(m.config, device), doTick())
@@ -655,7 +656,7 @@ func (m Model) executeCommandForDevice(device adb.Device) (tea.Model, tea.Cmd) {
 func (m Model) executeScreenRecord(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.clearLogs()
-	m.recordingScreen = true
+	m.mediaFeature.StartRecording()
 	m.operationStartTime = time.Now()
 
 	return m, tea.Batch(startRecording(m.config, device), doTick())
@@ -663,11 +664,11 @@ func (m Model) executeScreenRecord(device adb.Device) (tea.Model, tea.Cmd) {
 
 // stopRecording stops the active recording and saves it
 func (m Model) stopRecording() (tea.Model, tea.Cmd) {
-	if m.activeRecording != nil {
-		return m, stopAndSaveRecording(m.activeRecording)
+	activeRecording := m.mediaFeature.GetActiveRecording()
+	if activeRecording != nil {
+		return m, stopAndSaveRecording(activeRecording)
 	}
-	m.recordingScreen = false
-	m.activeRecording = nil
+	m.mediaFeature.FinishRecording()
 	return m, nil
 }
 
@@ -1052,13 +1053,13 @@ func (m Model) renderStatusBar() string {
 
 	// Active operations
 	var activeOps []string
-	if m.takingScreenshot {
+	if m.mediaFeature.IsTakingScreenshot() {
 		activeOps = append(activeOps, "📸 Screenshot")
 	}
-	if m.takingDayNightShots {
+	if m.mediaFeature.IsTakingDayNight() {
 		activeOps = append(activeOps, "📸 Day-Night")
 	}
-	if m.recordingScreen {
+	if m.mediaFeature.IsRecording() {
 		activeOps = append(activeOps, "🎥 Recording")
 	}
 	if m.connectingWiFi {
@@ -1166,17 +1167,17 @@ func (m Model) renderProgressIndicators() string {
 		Foreground(lipgloss.Color("214")).
 		Bold(true)
 
-	if m.takingScreenshot {
+	if m.mediaFeature.IsTakingScreenshot() {
 		progressText := m.getProgressText("Taking screenshot")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
 
-	if m.takingDayNightShots {
+	if m.mediaFeature.IsTakingDayNight() {
 		progressText := m.getProgressText("Taking day-night screenshots")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
 
-	if m.recordingScreen {
+	if m.mediaFeature.IsRecording() {
 		progressText := m.getProgressText("Recording screen • Press Esc to stop")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
