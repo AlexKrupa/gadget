@@ -506,6 +506,14 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
+		case "esc":
+			// Clear search filter if one exists
+			if m.searchFilter != "" {
+				m.searchFilter = ""
+				m.filteredCommands = m.filterCommands()
+				m.selectedCommandIndex = 0
+			}
+			return m, nil
 		case "up":
 			if m.selectedCommandIndex > 0 {
 				m.selectedCommandIndex--
@@ -902,7 +910,11 @@ func (m Model) View() string {
 	var footerText string
 	switch m.mode {
 	case ModeMenu:
-		footerText = "Type to search • ↑↓ to navigate • Enter to select • Ctrl+C to quit"
+		if m.searchFilter != "" {
+			footerText = "Type to search • ↑↓ to navigate • Enter to select • Esc to clear filter • Ctrl+C to quit"
+		} else {
+			footerText = "Type to search • ↑↓ to navigate • Enter to select • Ctrl+C to quit"
+		}
 	default:
 		footerText = "Press Ctrl+C to quit"
 	}
