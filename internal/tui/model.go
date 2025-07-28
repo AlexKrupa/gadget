@@ -4,9 +4,10 @@ import (
 	"adx/internal/adb"
 	"adx/internal/commands"
 	"adx/internal/config"
-	"adx/internal/emulator"
 	"adx/internal/tui/core"
+	"adx/internal/tui/features/devices"
 	"adx/internal/tui/features/media"
+	"adx/internal/tui/features/settings"
 	"adx/internal/tui/features/wifi"
 	"fmt"
 	"sort"
@@ -58,16 +59,12 @@ func GetAvailableCommandNames() []string {
 
 // Model represents the TUI state
 type Model struct {
-	config           *config.Config
-	devices          []adb.Device
-	avds             []emulator.AVD
-	selectedDevice   int
-	selectedEmulator int
-	selectedCommand  int
-	mode             Mode
-	err              error
-	successMsg       string
-	quitting         bool
+	config          *config.Config
+	selectedCommand int
+	mode            Mode
+	err             error
+	successMsg      string
+	quitting        bool
 
 	// Log system
 	logHistory    []LogEntry
@@ -75,18 +72,14 @@ type Model struct {
 	loading       bool
 
 	// Features
+	devicesFeature          *devices.DevicesFeature
 	mediaFeature            *media.MediaFeature
 	wifiFeature             *wifi.WiFiFeature
+	settingsFeature         *settings.SettingsFeature
 	textInput               string
 	textInputPrompt         string
 	textInputAction         string
 	selectedDeviceForAction adb.Device
-	currentSettingInfo      *commands.SettingInfo
-	currentSettingType      commands.SettingType
-	connectingWiFi          bool
-	disconnectingWiFi       bool
-	pairingWiFi             bool
-	pairingAddress          string // Store pairing address between input steps
 
 	// Command search fields
 	searchFilter         string
@@ -103,16 +96,16 @@ func NewModel(cfg *config.Config) Model {
 	m := Model{
 		config:               cfg,
 		mode:                 ModeMenu,
-		selectedDevice:       0,
-		selectedEmulator:     0,
 		selectedCommand:      0,
 		loading:              true,
 		searchFilter:         "",
 		selectedCommandIndex: 0,
 		logHistory:           make([]LogEntry, 0),
 		maxLogEntries:        5, // Keep last 5 log entries
+		devicesFeature:       devices.NewDevicesFeature(cfg),
 		mediaFeature:         media.NewMediaFeature(cfg),
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
+		settingsFeature:      settings.NewSettingsFeature(cfg),
 	}
 	m.filteredCommands = m.filterCommands()
 	return m
@@ -307,7 +300,7 @@ func doTick() tea.Cmd {
 // Init initializes the model (required by Bubble Tea)
 func (m Model) Init() tea.Cmd {
 	m.operationStartTime = time.Now()
-	return tea.Batch(loadDevices(m.config.GetADBPath()), doTick())
+	return tea.Batch(loadDevices(m.config), doTick())
 }
 
 // Update handles messages and updates the model state
@@ -316,18 +309,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 	case devicesLoadedMsg:
-		m.devices = msg.Devices
-		m.err = msg.Err
+		_, _, _, errorMsg := m.devicesFeature.HandleDevicesLoaded(msg)
 		m.loading = false
-		if len(m.devices) == 0 && m.err == nil {
-			m.err = fmt.Errorf("no devices connected")
+		if errorMsg != "" {
+			m.err = fmt.Errorf(errorMsg)
+		} else {
+			m.err = nil
 		}
 		// Don't clear success messages during auto-refresh
 		return m, nil
 	case avdsLoadedMsg:
-		m.avds = msg.Avds
-		if msg.Err != nil {
-			m.err = msg.Err
+		_, _, _, errorMsg := m.devicesFeature.HandleAvdsLoaded(msg)
+		if errorMsg != "" {
+			m.err = fmt.Errorf(errorMsg)
 			m.mode = ModeMenu
 		}
 		return m, nil
@@ -366,64 +360,62 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case settingLoadedMsg:
-		if msg.Err != nil {
-			m.err = fmt.Errorf("failed to get current setting: %s", msg.Err.Error())
+		_, _, _, errorMsg := m.settingsFeature.HandleSettingLoaded(msg)
+		if errorMsg != "" {
+			m.err = fmt.Errorf("failed to get current setting: %s", errorMsg)
 			m.mode = ModeMenu
 		} else {
-			m.currentSettingInfo = msg.SettingInfo
-			m.currentSettingType = msg.SettingInfo.Type
 			m.mode = ModeTextInput
 
 			// Show both Default/Physical and Current values
+			settingInfo := m.settingsFeature.GetCurrentSettingInfo()
 			displayInfo := fmt.Sprintf("Physical %s: %s\nCurrent %s: %s",
-				msg.SettingInfo.DisplayName, msg.SettingInfo.Default,
-				msg.SettingInfo.DisplayName, msg.SettingInfo.Current)
+				settingInfo.DisplayName, settingInfo.Default,
+				settingInfo.DisplayName, settingInfo.Current)
 
 			m.textInputPrompt = fmt.Sprintf("Device: %s\n%s\n\n%s",
-				m.selectedDeviceForAction.Serial, displayInfo, msg.SettingInfo.InputPrompt)
+				m.selectedDeviceForAction.Serial, displayInfo, settingInfo.InputPrompt)
 		}
 		return m, nil
 	case settingChangedMsg:
-		if msg.Success {
-			m.addSuccess(msg.Message)
+		_, cmd, successMsg, errorMsg := m.settingsFeature.HandleSettingChanged(msg, m.selectedDeviceForAction)
+		if successMsg != "" {
+			m.addSuccess(successMsg)
 			// Refresh setting info to show updated values
-			return m, getCurrentSetting(m.config, m.selectedDeviceForAction, msg.SettingType)
-		} else {
-			m.addError(fmt.Sprintf("Setting change failed: %s", msg.Message))
+			return m, cmd
+		} else if errorMsg != "" {
+			m.addError(errorMsg)
 		}
 		return m, nil
 	case wifiConnectDoneMsg:
-		m.connectingWiFi = false
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiConnectDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi connection
-			return m, loadDevices(m.config.GetADBPath())
+			return m, loadDevices(m.config)
 		} else if errorMsg != "" {
 			m.addError(errorMsg)
 		}
 		return m, nil
 	case wifiDisconnectDoneMsg:
-		m.disconnectingWiFi = false
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiDisconnectDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi disconnection
-			return m, loadDevices(m.config.GetADBPath())
+			return m, loadDevices(m.config)
 		} else if errorMsg != "" {
 			m.addError(errorMsg)
 		}
 		return m, nil
 	case wifiPairDoneMsg:
-		m.pairingWiFi = false
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiPairDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
 			m.mode = ModeMenu
 			// Refresh device list after successful WiFi pairing
-			return m, loadDevices(m.config.GetADBPath())
+			return m, loadDevices(m.config)
 		} else if errorMsg != "" {
 			m.addError(errorMsg)
 		}
@@ -432,7 +424,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.progressTicker++
 		// Continue ticking if any operation is active
 		if m.loading || m.mediaFeature.IsActive() ||
-			m.connectingWiFi || m.disconnectingWiFi || m.pairingWiFi {
+			m.wifiFeature.IsConnecting() || m.wifiFeature.IsDisconnecting() || m.wifiFeature.IsPairing() {
 			return m, doTick()
 		}
 		return m, nil
@@ -504,18 +496,21 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = ModeMenu
 			return m, nil
 		case "up", "k", "h":
-			if m.selectedDevice > 0 {
-				m.selectedDevice--
+			selectedDevice := m.devicesFeature.GetSelectedDevice()
+			if selectedDevice > 0 {
+				m.devicesFeature.SetSelectedDevice(selectedDevice - 1)
 			}
 			return m, nil
 		case "down", "j", "l":
-			if m.selectedDevice < len(m.devices)-1 {
-				m.selectedDevice++
+			selectedDevice := m.devicesFeature.GetSelectedDevice()
+			if selectedDevice < len(m.devicesFeature.GetDevices())-1 {
+				m.devicesFeature.SetSelectedDevice(selectedDevice + 1)
 			}
 			return m, nil
 		case "enter":
-			if m.selectedDevice < len(m.devices) {
-				return m.executeCommandForDevice(m.devices[m.selectedDevice])
+			selectedDevice := m.devicesFeature.GetSelectedDeviceInstance()
+			if selectedDevice != nil {
+				return m.executeCommandForDevice(*selectedDevice)
 			}
 		}
 	case ModeEmulatorSelect:
@@ -524,19 +519,19 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = ModeMenu
 			return m, nil
 		case "up", "k", "h":
-			if m.selectedEmulator > 0 {
-				m.selectedEmulator--
+			selectedEmulator := m.devicesFeature.GetSelectedEmulator()
+			if selectedEmulator > 0 {
+				m.devicesFeature.SetSelectedEmulator(selectedEmulator - 1)
 			}
 			return m, nil
 		case "down", "j", "l":
-			if m.selectedEmulator < len(m.avds)-1 {
-				m.selectedEmulator++
+			selectedEmulator := m.devicesFeature.GetSelectedEmulator()
+			if selectedEmulator < len(m.devicesFeature.GetAvds())-1 {
+				m.devicesFeature.SetSelectedEmulator(selectedEmulator + 1)
 			}
 			return m, nil
 		case "enter":
-			if m.selectedEmulator < len(m.avds) {
-				return m.launchEmulator(m.avds[m.selectedEmulator])
-			}
+			return m.launchEmulator()
 		}
 	case ModeTextInput:
 		switch msg.String() {
@@ -620,11 +615,12 @@ func (m Model) executeSelectedCommand() (tea.Model, tea.Cmd) {
 		return m, nil
 	case "refresh-devices":
 		m.clearLogs()
-		return m, loadDevices(m.config.GetADBPath())
+		return m, loadDevices(m.config)
 	default:
 		// Commands that require device selection
-		if len(m.devices) == 1 {
-			return m.executeCommandForDevice(m.devices[0])
+		devices := m.devicesFeature.GetDevices()
+		if len(devices) == 1 {
+			return m.executeCommandForDevice(devices[0])
 		}
 		m.mode = ModeDeviceSelect
 		return m, nil
@@ -729,7 +725,6 @@ func (m Model) executeSettingChange(settingType commands.SettingType) (tea.Model
 func (m Model) executeWiFiConnect() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.clearLogs()
-	m.connectingWiFi = true
 	m.operationStartTime = time.Now()
 
 	// Save input and clear it
@@ -738,14 +733,14 @@ func (m Model) executeWiFiConnect() (tea.Model, tea.Cmd) {
 	m.textInputPrompt = ""
 	m.textInputAction = ""
 
-	return m, tea.Batch(connectWiFi(m.config, input), doTick())
+	cmd := m.wifiFeature.StartWiFiConnect(input)
+	return m, tea.Batch(cmd, doTick())
 }
 
 // executeWiFiDisconnect processes WiFi disconnection
 func (m Model) executeWiFiDisconnect() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.clearLogs()
-	m.disconnectingWiFi = true
 	m.operationStartTime = time.Now()
 
 	// Save input and clear it
@@ -754,15 +749,16 @@ func (m Model) executeWiFiDisconnect() (tea.Model, tea.Cmd) {
 	m.textInputPrompt = ""
 	m.textInputAction = ""
 
-	return m, tea.Batch(disconnectWiFi(m.config, input), doTick())
+	cmd := m.wifiFeature.StartWiFiDisconnect(input)
+	return m, tea.Batch(cmd, doTick())
 }
 
 // handlePairingAddressInput processes the first step of pairing (address input)
 func (m Model) handlePairingAddressInput() (tea.Model, tea.Cmd) {
 	// Store the pairing address and ask for pairing code
-	m.pairingAddress = m.textInput
+	m.wifiFeature.SetPairingAddress(m.textInput)
 	m.textInput = ""
-	m.textInputPrompt = fmt.Sprintf("Enter 6-digit pairing code from phone for %s", m.pairingAddress)
+	m.textInputPrompt = fmt.Sprintf("Enter 6-digit pairing code from phone for %s", m.wifiFeature.GetPairingAddress())
 	m.textInputAction = "wifi_pair_code"
 
 	return m, nil
@@ -772,35 +768,36 @@ func (m Model) handlePairingAddressInput() (tea.Model, tea.Cmd) {
 func (m Model) executeWiFiPair() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.clearLogs()
-	m.pairingWiFi = true
 	m.operationStartTime = time.Now()
 
 	// Save pairing code and clear inputs
 	pairingCode := m.textInput
-	pairingAddress := m.pairingAddress
+	pairingAddress := m.wifiFeature.GetPairingAddress()
 	m.textInput = ""
 	m.textInputPrompt = ""
 	m.textInputAction = ""
-	m.pairingAddress = ""
+	m.wifiFeature.ClearPairingAddress()
 
-	return m, tea.Batch(pairWiFi(m.config, pairingAddress, pairingCode), doTick())
+	cmd := m.wifiFeature.StartWiFiPair(pairingAddress, pairingCode)
+	return m, tea.Batch(cmd, doTick())
 }
 
 // launchEmulator starts the selected emulator
-func (m Model) launchEmulator(avd emulator.AVD) (tea.Model, tea.Cmd) {
+func (m Model) launchEmulator() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.err = nil
 	m.successMsg = ""
 
-	err := emulator.LaunchEmulator(m.config, avd)
-	if err != nil {
-		m.err = fmt.Errorf("failed to launch emulator: %v", err)
+	_, cmd, successMsg, errorMsg := m.devicesFeature.LaunchSelectedEmulator()
+	if errorMsg != "" {
+		m.err = fmt.Errorf(errorMsg)
 		return m, nil
-	} else {
-		m.addSuccess(fmt.Sprintf("Launched emulator: %s (may take a moment to appear)", avd.Name))
-		// Refresh device list after launching emulator (it may take time to connect)
-		return m, loadDevices(m.config.GetADBPath())
+	} else if successMsg != "" {
+		m.addSuccess(successMsg)
+		return m, cmd
 	}
+
+	return m, nil
 }
 
 // View renders the TUI
@@ -936,9 +933,10 @@ func (m Model) renderMainMenu() string {
 		s.WriteString(descStyle.Render(fmt.Sprintf("→ %s", selectedCmd.Description)) + "\n\n")
 	}
 
-	s.WriteString(fmt.Sprintf("Connected devices: %d\n", len(m.devices)))
+	devices := m.devicesFeature.GetDevices()
+	s.WriteString(fmt.Sprintf("Connected devices: %d\n", len(devices)))
 
-	for _, device := range m.devices {
+	for _, device := range devices {
 		s.WriteString(fmt.Sprintf("  %s %s\n", device.GetStatusIndicator(), device.String()))
 	}
 
@@ -949,9 +947,12 @@ func (m Model) renderMainMenu() string {
 func (m Model) renderDeviceSelection() string {
 	s := []string{"Select a device:", ""}
 
-	for i, device := range m.devices {
+	devices := m.devicesFeature.GetDevices()
+	selectedDevice := m.devicesFeature.GetSelectedDevice()
+
+	for i, device := range devices {
 		cursor := "  "
-		if i == m.selectedDevice {
+		if i == selectedDevice {
 			cursor = "> "
 		}
 		deviceInfo := fmt.Sprintf("%s %s", device.GetStatusIndicator(), device.String())
@@ -992,15 +993,18 @@ func (m Model) renderTextInput() string {
 func (m Model) renderEmulatorSelection() string {
 	s := []string{"Select an emulator to launch:", ""}
 
-	if len(m.avds) == 0 {
+	avds := m.devicesFeature.GetAvds()
+	selectedEmulator := m.devicesFeature.GetSelectedEmulator()
+
+	if len(avds) == 0 {
 		s = append(s, "No AVDs found. Create one with Android Studio or avdmanager.")
 		s = append(s, "", "Press Esc to go back")
 		return strings.Join(s, "\n")
 	}
 
-	for i, avd := range m.avds {
+	for i, avd := range avds {
 		cursor := "  "
-		if i == m.selectedEmulator {
+		if i == selectedEmulator {
 			cursor = "> "
 		}
 		s = append(s, fmt.Sprintf("%s%s", cursor, avd.String()))
@@ -1015,11 +1019,12 @@ func (m Model) renderStatusBar() string {
 	var statusItems []string
 
 	// Device count with status indicators
-	if len(m.devices) > 0 {
+	devices := m.devicesFeature.GetDevices()
+	if len(devices) > 0 {
 		var deviceCounts []string
 		physicalCount, emulatorCount, wifiCount := 0, 0, 0
 
-		for _, device := range m.devices {
+		for _, device := range devices {
 			switch device.GetConnectionType() {
 			case adb.DeviceTypePhysical:
 				physicalCount++
@@ -1068,13 +1073,13 @@ func (m Model) renderStatusBar() string {
 	if m.mediaFeature.IsRecording() {
 		activeOps = append(activeOps, "🎥 Recording")
 	}
-	if m.connectingWiFi {
+	if m.wifiFeature.IsConnecting() {
 		activeOps = append(activeOps, "📶 Connecting")
 	}
-	if m.disconnectingWiFi {
+	if m.wifiFeature.IsDisconnecting() {
 		activeOps = append(activeOps, "📶 Disconnecting")
 	}
-	if m.pairingWiFi {
+	if m.wifiFeature.IsPairing() {
 		activeOps = append(activeOps, "📶 Pairing")
 	}
 
@@ -1188,17 +1193,17 @@ func (m Model) renderProgressIndicators() string {
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
 
-	if m.connectingWiFi {
+	if m.wifiFeature.IsConnecting() {
 		progressText := m.getProgressText("Connecting to WiFi device")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
 
-	if m.disconnectingWiFi {
+	if m.wifiFeature.IsDisconnecting() {
 		progressText := m.getProgressText("Disconnecting from WiFi device")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}
 
-	if m.pairingWiFi {
+	if m.wifiFeature.IsPairing() {
 		progressText := m.getProgressText("Pairing with WiFi device")
 		indicators = append(indicators, loadingStyle.Render(progressText))
 	}

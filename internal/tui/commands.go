@@ -4,33 +4,22 @@ import (
 	"adx/internal/adb"
 	"adx/internal/commands"
 	"adx/internal/config"
+	"adx/internal/tui/features/devices"
 	"adx/internal/tui/features/media"
+	"adx/internal/tui/features/settings"
 	"adx/internal/tui/features/wifi"
-	"adx/internal/tui/messaging"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // loadDevices loads connected ADB devices asynchronously with extended info
-func loadDevices(adbPath string) tea.Cmd {
-	return func() tea.Msg {
-		devices, err := adb.GetConnectedDevices(adbPath)
-		if err == nil {
-			// Load extended info for each device
-			for i := range devices {
-				devices[i].LoadExtendedInfo(adbPath)
-			}
-		}
-		return messaging.DevicesLoadedMsg{
-			Devices: devices,
-			Err:     err,
-		}
-	}
+func loadDevices(cfg *config.Config) tea.Cmd {
+	return devices.LoadDevicesCmd(cfg)
 }
 
 // loadAVDs loads available Android Virtual Devices asynchronously
 func loadAVDs(cfg *config.Config) tea.Cmd {
-	return messaging.LoadAvdsCmd(cfg)
+	return devices.LoadAvdsCmd(cfg)
 }
 
 // Delegate screenshot and recording operations to media feature
@@ -50,14 +39,13 @@ func stopAndSaveRecording(recording *commands.ScreenRecording) tea.Cmd {
 	return media.StopAndSaveRecordingCmd(recording)
 }
 
-// getCurrentSetting gets the current setting from device
+// Delegate settings operations to settings feature
 func getCurrentSetting(cfg *config.Config, device adb.Device, settingType commands.SettingType) tea.Cmd {
-	return messaging.LoadSettingCmd(cfg, device, settingType)
+	return settings.LoadSettingCmd(cfg, device, settingType)
 }
 
-// changeSetting changes the device setting asynchronously
 func changeSetting(cfg *config.Config, device adb.Device, settingType commands.SettingType, value string) tea.Cmd {
-	return messaging.ChangeSettingCmd(cfg, device, settingType, value)
+	return settings.ChangeSettingCmd(cfg, device, settingType, value)
 }
 
 // Delegate WiFi operations to WiFi feature
