@@ -1,6 +1,7 @@
 package adb
 
 import (
+	"adx/internal/display"
 	"bufio"
 	"fmt"
 	"os"
@@ -20,9 +21,12 @@ type Device struct {
 	TransportID string
 
 	// Extended info (populated lazily)
-	BatteryLevel   int // -1 if unknown
-	AndroidVersion string
-	ScreenRes      string
+	BatteryLevel    int // -1 if unknown
+	AndroidVersion  string
+	ScreenRes       string
+	CPUArchitecture string
+	APILevel        int // -1 if unknown
+	IPAddress       string
 }
 
 // DeviceConnectionType represents the type of device connection
@@ -223,7 +227,7 @@ func getDisplayNameFromAVDName(avdName string) string {
 	return ""
 }
 
-// LoadExtendedInfo populates battery, Android version, and screen resolution for the device
+// LoadExtendedInfo populates battery, Android version, screen resolution, CPU architecture, API level, and IP address for the device
 func (d *Device) LoadExtendedInfo(adbPath string) {
 	if d.Status != "device" {
 		return // Only load info for connected devices
@@ -267,28 +271,108 @@ func (d *Device) LoadExtendedInfo(adbPath string) {
 			}
 		}
 	}
+
+	// Load CPU architecture
+	if cpuOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "getprop", "ro.product.cpu.abi"); err == nil {
+		d.CPUArchitecture = strings.TrimSpace(cpuOutput)
+	}
+
+	// Load API level
+	if apiOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "getprop", "ro.build.version.sdk"); err == nil {
+		if apiLevel, err := strconv.Atoi(strings.TrimSpace(apiOutput)); err == nil {
+			d.APILevel = apiLevel
+		} else {
+			d.APILevel = -1 // Unknown
+		}
+	} else {
+		d.APILevel = -1 // Unknown
+	}
+
+	// Load IP address - try multiple methods
+	d.loadIPAddress(adbPath)
+}
+
+// loadIPAddress attempts to get the device's IP address using various methods
+func (d *Device) loadIPAddress(adbPath string) {
+	// Method 1: Try to get WiFi IP address from wlan0 interface
+	if ipOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "ip", "addr", "show", "wlan0"); err == nil {
+		lines := strings.Split(strings.TrimSpace(ipOutput), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.Contains(line, "inet ") && !strings.Contains(line, "127.0.0.1") {
+				// Extract IP from line like "inet 192.168.1.100/24 brd 192.168.1.255 scope global wlan0"
+				parts := strings.Fields(line)
+				for i, part := range parts {
+					if part == "inet" && i+1 < len(parts) {
+						ipWithMask := parts[i+1]
+						if slashIndex := strings.Index(ipWithMask, "/"); slashIndex != -1 {
+							d.IPAddress = ipWithMask[:slashIndex]
+						} else {
+							d.IPAddress = ipWithMask
+						}
+						return
+					}
+				}
+			}
+		}
+	}
+
+	// Method 2: Try using ifconfig (fallback for older devices)
+	if ipOutput, err := ExecuteCommandWithOutput(adbPath, d.Serial, "shell", "ifconfig", "wlan0"); err == nil {
+		lines := strings.Split(strings.TrimSpace(ipOutput), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.Contains(line, "inet addr:") {
+				// Extract IP from line like "inet addr:192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0"
+				if startIndex := strings.Index(line, "inet addr:"); startIndex != -1 {
+					remaining := line[startIndex+10:] // Skip "inet addr:"
+					if spaceIndex := strings.Index(remaining, " "); spaceIndex != -1 {
+						d.IPAddress = remaining[:spaceIndex]
+					} else {
+						d.IPAddress = remaining
+					}
+					return
+				}
+			}
+		}
+	}
+
+	// Method 3: For WiFi devices, extract IP from serial if it's in IP:port format
+	if d.GetConnectionType() == DeviceTypeWiFi && strings.Contains(d.Serial, ":") {
+		parts := strings.Split(d.Serial, ":")
+		if len(parts) >= 2 {
+			d.IPAddress = parts[0]
+		}
+	}
 }
 
 // GetExtendedInfo returns a formatted string with extended device information
 func (d Device) GetExtendedInfo() string {
 	var info []string
 
-	if d.AndroidVersion != "" {
+	// Android version and API level
+	if d.AndroidVersion != "" && d.APILevel > 0 {
+		info = append(info, fmt.Sprintf("Android %s (API %d)", d.AndroidVersion, d.APILevel))
+	} else if d.AndroidVersion != "" {
 		info = append(info, fmt.Sprintf("Android %s", d.AndroidVersion))
+	} else if d.APILevel > 0 {
+		info = append(info, fmt.Sprintf("API %d", d.APILevel))
 	}
 
-	if d.BatteryLevel >= 0 {
-		batteryIcon := "🔋"
-		if d.BatteryLevel < 20 {
-			batteryIcon = "🪫"
-		} else if d.BatteryLevel > 80 {
-			batteryIcon = "🔋"
-		}
-		info = append(info, fmt.Sprintf("%s %d%%", batteryIcon, d.BatteryLevel))
+	// CPU Architecture
+	if d.CPUArchitecture != "" {
+		cpuDisplay := display.NormalizeCPUArchitecture(d.CPUArchitecture)
+		info = append(info, fmt.Sprintf("%s %s", display.IconCPU, cpuDisplay))
 	}
 
+	// Screen Resolution
 	if d.ScreenRes != "" {
-		info = append(info, fmt.Sprintf("📱 %s", d.ScreenRes))
+		info = append(info, fmt.Sprintf("%s %s", display.IconScreen, d.ScreenRes))
+	}
+
+	// IP Address
+	if d.IPAddress != "" {
+		info = append(info, fmt.Sprintf("%s %s", display.IconNetwork, d.IPAddress))
 	}
 
 	if len(info) == 0 {

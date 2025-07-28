@@ -4,6 +4,7 @@ import (
 	"adx/internal/adb"
 	"adx/internal/commands"
 	"adx/internal/config"
+	"adx/internal/display"
 	"adx/internal/emulator"
 	"fmt"
 	"os"
@@ -240,9 +241,14 @@ func ExecuteRefreshDevices(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+
 	fmt.Printf("Connected devices: %d\n", len(devices))
-	for _, device := range devices {
-		fmt.Printf("  %s\n", device.String())
+	for i := range devices {
+		// Load extended info for each device
+		devices[i].LoadExtendedInfo(cfg.GetADBPath())
+
+		formattedInfo := display.FormatExtendedInfoWithIndent(devices[i].String(), devices[i].GetExtendedInfo())
+		fmt.Printf("  %s\n", formattedInfo)
 	}
 	return nil
 }

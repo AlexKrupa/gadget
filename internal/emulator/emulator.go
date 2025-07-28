@@ -2,6 +2,7 @@ package emulator
 
 import (
 	"adx/internal/config"
+	"adx/internal/display"
 	"bufio"
 	"fmt"
 	"os"
@@ -23,32 +24,39 @@ type AVD struct {
 
 // String returns a formatted string representation of the AVD
 func (a AVD) String() string {
-	var parts []string
-
 	// Use DisplayName if available, otherwise Name
 	name := a.Name
 	if a.DisplayName != "" {
 		name = a.DisplayName
 	}
-	parts = append(parts, name)
+	return name
+}
 
-	// Add API level and architecture info
-	var details []string
+// GetExtendedInfo returns a formatted string with extended AVD information
+func (a AVD) GetExtendedInfo() string {
+	var info []string
+
+	// API Level
 	if a.APILevel != "" {
-		details = append(details, "API "+a.APILevel)
+		info = append(info, fmt.Sprintf("API %s", a.APILevel))
 	}
+
+	// CPU Architecture - use same format as devices
 	if a.Architecture != "" {
-		details = append(details, a.Architecture)
+		cpuDisplay := display.NormalizeCPUArchitecture(a.Architecture)
+		info = append(info, fmt.Sprintf("%s %s", display.IconCPU, cpuDisplay))
 	}
+
+	// Screen Resolution
 	if a.Resolution != "" {
-		details = append(details, a.Resolution)
+		info = append(info, fmt.Sprintf("%s %s", display.IconScreen, a.Resolution))
 	}
 
-	if len(details) > 0 {
-		parts = append(parts, "("+strings.Join(details, " • ")+")")
+	if len(info) == 0 {
+		return ""
 	}
 
-	return strings.Join(parts, " ")
+	return strings.Join(info, " • ")
 }
 
 // GetAvailableAVDs returns a list of available Android Virtual Devices

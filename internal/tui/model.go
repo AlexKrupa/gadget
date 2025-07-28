@@ -932,7 +932,11 @@ func (m Model) renderMainMenu() string {
 	s.WriteString(fmt.Sprintf("Connected devices: %d\n", len(devices)))
 
 	for _, device := range devices {
-		s.WriteString(fmt.Sprintf("  %s %s\n", device.GetStatusIndicator(), device.String()))
+		s.WriteString(fmt.Sprintf("  %s %s", device.GetStatusIndicator(), device.String()))
+		if extendedInfo := device.GetExtendedInfo(); extendedInfo != "" {
+			s.WriteString(fmt.Sprintf("\n    %s", extendedInfo))
+		}
+		s.WriteString("\n")
 	}
 
 	return s.String()
@@ -1002,7 +1006,11 @@ func (m Model) renderEmulatorSelection() string {
 		if i == selectedEmulator {
 			cursor = "> "
 		}
-		s = append(s, fmt.Sprintf("%s%s", cursor, avd.String()))
+		avdInfo := fmt.Sprintf("%s%s", cursor, avd.String())
+		if extendedInfo := avd.GetExtendedInfo(); extendedInfo != "" {
+			avdInfo += fmt.Sprintf("\n    %s", extendedInfo)
+		}
+		s = append(s, avdInfo)
 	}
 
 	s = append(s, "", "Press Enter to launch, Esc to go back")
