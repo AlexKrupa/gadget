@@ -27,6 +27,7 @@ func GetAvailableCommands() []Command {
 		{"connect-wifi", "Connect WiFi device", "Connect to a WiFi device", "WiFi"},
 		{"disconnect-wifi", "Disconnect WiFi device", "Disconnect from a WiFi device", "WiFi"},
 		{"launch-emulator", "Launch emulator", "Start an Android emulator", "Devices/emulators"},
+		{"configure-emulator", "Configure emulator", "Edit emulator configuration", "Devices/emulators"},
 		{"refresh-devices", "Refresh devices", "Refresh the device list", "Devices/emulators"},
 	}
 }

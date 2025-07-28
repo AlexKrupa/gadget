@@ -415,6 +415,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addError(errorMsg)
 		}
 		return m, nil
+	case emulatorConfigureDoneMsg:
+		if msg.Success {
+			m.addSuccess(msg.Message)
+		} else {
+			m.addError(msg.Message)
+		}
+		return m, nil
 	case tickMsg:
 		m.progressTicker++
 		// Continue ticking if any operation is active
@@ -526,7 +533,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "enter":
-			return m.launchEmulator()
+			return m.executeEmulatorCommand()
 		}
 	case ModeTextInput:
 		switch msg.String() {
@@ -588,6 +595,9 @@ func (m Model) executeSelectedCommand() (tea.Model, tea.Cmd) {
 
 	switch selectedCmd.Command {
 	case "launch-emulator":
+		m.mode = ModeEmulatorSelect
+		return m, loadAVDs(m.config)
+	case "configure-emulator":
 		m.mode = ModeEmulatorSelect
 		return m, loadAVDs(m.config)
 	case "connect-wifi":
@@ -793,6 +803,40 @@ func (m Model) launchEmulator() (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// executeEmulatorCommand executes the appropriate emulator command based on selection
+func (m Model) executeEmulatorCommand() (tea.Model, tea.Cmd) {
+	if len(m.filteredCommands) == 0 || m.selectedCommandIndex >= len(m.filteredCommands) {
+		return m, nil
+	}
+
+	selectedCmd := m.filteredCommands[m.selectedCommandIndex]
+
+	switch selectedCmd.Command {
+	case "launch-emulator":
+		return m.launchEmulator()
+	case "configure-emulator":
+		return m.configureEmulator()
+	default:
+		// Fallback to launch for unknown commands
+		return m.launchEmulator()
+	}
+}
+
+// configureEmulator opens the selected emulator's config in editor
+func (m Model) configureEmulator() (tea.Model, tea.Cmd) {
+	m.mode = ModeMenu
+	m.err = nil
+	m.successMsg = ""
+
+	selectedAVD := m.devicesFeature.GetSelectedEmulatorInstance()
+	if selectedAVD == nil {
+		m.err = fmt.Errorf("no emulator selected")
+		return m, nil
+	}
+
+	return m, configureEmulatorCmd(m.config, *selectedAVD)
 }
 
 // View renders the TUI

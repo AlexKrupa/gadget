@@ -24,12 +24,9 @@ type AVD struct {
 
 // String returns a formatted string representation of the AVD
 func (a AVD) String() string {
-	// Use DisplayName if available, otherwise Name
-	name := a.Name
-	if a.DisplayName != "" {
-		name = a.DisplayName
-	}
-	return name
+	// Always use Name (AVD ID) for consistency and CLI compatibility
+	// Display name can be shown in extended info if needed
+	return a.Name
 }
 
 // GetExtendedInfo returns a formatted string with extended AVD information
@@ -89,10 +86,10 @@ func getAVDsFromDirectory() ([]AVD, error) {
 			target, actualPath := readTargetAndPathFromIni(iniPath)
 
 			// Use the actual path from .ini file, fallback to constructed path
-			configPath := filepath.Join(actualPath, "config.ini")
+			configPath := filepath.Join(actualPath, AVDConfigFile)
 			if actualPath == "" {
 				actualPath = filepath.Join(avdDir, avdName+".avd")
-				configPath = filepath.Join(actualPath, "config.ini")
+				configPath = filepath.Join(actualPath, AVDConfigFile)
 			}
 
 			avdDetails := readAVDDetails(configPath)
@@ -211,6 +208,68 @@ func readAVDDetails(configPath string) *AVDDetails {
 	}
 
 	return details
+}
+
+const AVDConfigFile = "config.ini"
+
+// SelectAVD handles common AVD selection logic for CLI commands
+func SelectAVD(cfg *config.Config, avdName string) (*AVD, error) {
+	avds, err := GetAvailableAVDs(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(avds) == 0 {
+		return nil, fmt.Errorf("no AVDs found")
+	}
+
+	// If AVD name specified, find it
+	if avdName != "" {
+		for _, avd := range avds {
+			if avd.Name == avdName {
+				return &avd, nil
+			}
+		}
+		return nil, fmt.Errorf("AVD with name %s not found", avdName)
+	}
+
+	// If only one AVD, use it
+	if len(avds) == 1 {
+		return &avds[0], nil
+	}
+
+	// Multiple AVDs, require explicit selection
+	fmt.Println("Multiple AVDs available. Please specify AVD with -value flag:")
+	for _, avd := range avds {
+		fmt.Printf("  %s\n", avd.String())
+	}
+	return nil, fmt.Errorf("multiple AVDs available, please specify -value")
+}
+
+// OpenConfigInEditor opens the AVD's config.ini file in the user's $EDITOR
+func OpenConfigInEditor(avd AVD) error {
+	configPath := filepath.Join(avd.Path, AVDConfigFile)
+
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return fmt.Errorf("AVD config file not found: %s", configPath)
+	}
+
+	// Get editor from environment, default to vi
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+
+	fmt.Printf("Opening AVD config for %s in %s...\n", avd.Name, editor)
+
+	// Execute editor command
+	cmd := exec.Command(editor, configPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }
 
 // LaunchEmulator starts the specified AVD

@@ -52,3 +52,4 @@ type ScreenRecordDoneMsg OperationResult
 type WiFiConnectDoneMsg OperationResult
 type WiFiDisconnectDoneMsg OperationResult
 type WiFiPairDoneMsg OperationResult
+type EmulatorConfigureDoneMsg OperationResult

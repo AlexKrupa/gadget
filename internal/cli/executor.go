@@ -24,6 +24,7 @@ var CommandRegistry = map[string]CommandExecutor{
 	"change-font-size":     executeChangeFontSize,
 	"change-screen-size":   executeChangeScreenSize,
 	"launch-emulator":      executeLaunchEmulator,
+	"configure-emulator":   executeConfigureEmulator,
 	"pair-wifi":            executePairWiFi,
 	"connect-wifi":         executeConnectWiFi,
 	"disconnect-wifi":      executeDisconnectWiFi,
@@ -66,6 +67,10 @@ func executeChangeScreenSize(cfg *config.Config, deviceSerial, _, _, value strin
 
 func executeLaunchEmulator(cfg *config.Config, _, _, _, value string) error {
 	return ExecuteLaunchEmulatorDirect(cfg, value)
+}
+
+func executeConfigureEmulator(cfg *config.Config, _, _, _, value string) error {
+	return ExecuteConfigureEmulatorDirect(cfg, value)
 }
 
 func executePairWiFi(cfg *config.Config, _, ip, code, _ string) error {
@@ -202,38 +207,20 @@ func ExecuteChangeScreenSizeDirect(cfg *config.Config, deviceSerial, value strin
 }
 
 func ExecuteLaunchEmulatorDirect(cfg *config.Config, avdName string) error {
-	avds, err := emulator.GetAvailableAVDs(cfg)
+	avd, err := emulator.SelectAVD(cfg, avdName)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Launching emulator: %s\n", avd.Name)
+	return emulator.LaunchEmulator(cfg, *avd)
+}
 
-	if len(avds) == 0 {
-		return fmt.Errorf("no AVDs found")
+func ExecuteConfigureEmulatorDirect(cfg *config.Config, avdName string) error {
+	avd, err := emulator.SelectAVD(cfg, avdName)
+	if err != nil {
+		return err
 	}
-
-	// If AVD name specified, find it
-	if avdName != "" {
-		for _, avd := range avds {
-			if avd.Name == avdName {
-				fmt.Printf("Launching emulator: %s\n", avd.Name)
-				return emulator.LaunchEmulator(cfg, avd)
-			}
-		}
-		return fmt.Errorf("AVD with name %s not found", avdName)
-	}
-
-	// If only one AVD, use it
-	if len(avds) == 1 {
-		fmt.Printf("Launching emulator: %s\n", avds[0].Name)
-		return emulator.LaunchEmulator(cfg, avds[0])
-	}
-
-	// Multiple AVDs, require explicit selection
-	fmt.Println("Multiple AVDs available. Please specify AVD with -value flag:")
-	for _, avd := range avds {
-		fmt.Printf("  %s\n", avd.String())
-	}
-	return fmt.Errorf("multiple AVDs available, please specify -value")
+	return emulator.OpenConfigInEditor(*avd)
 }
 
 func ExecuteRefreshDevices(cfg *config.Config) error {

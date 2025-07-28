@@ -91,6 +91,7 @@ var argumentParsers = map[string]ArgumentParser{
 	"change-font-size":     parseSettingArgs,
 	"change-screen-size":   parseSettingArgs,
 	"launch-emulator":      parseValueArgs,
+	"configure-emulator":   parseValueArgs,
 	"screenshot":           parseDeviceArgs,
 	"screenshot-day-night": parseDeviceArgs,
 	"screen-record":        parseDeviceArgs,
