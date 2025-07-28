@@ -52,11 +52,6 @@ func getCommandCategories() []CommandCategory {
 	return core.GetCommandCategories()
 }
 
-// GetAvailableCommandNames returns a list of all available command names for CLI help
-func GetAvailableCommandNames() []string {
-	return core.GetAvailableCommandNames()
-}
-
 // Model represents the TUI state
 type Model struct {
 	config          *config.Config

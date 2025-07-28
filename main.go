@@ -3,6 +3,7 @@ package main
 import (
 	"adx/internal/cli"
 	"adx/internal/config"
+	"adx/internal/registry"
 	"adx/internal/tui"
 	"flag"
 	"fmt"
@@ -24,7 +25,7 @@ func main() {
 	}
 
 	// Get available commands for help text
-	availableCommands := tui.GetAvailableCommandNames()
+	availableCommands := registry.GetAvailableCommandNames()
 	commandHelp := fmt.Sprintf("Command to execute directly (%s)", strings.Join(availableCommands, ", "))
 
 	// Parse command line arguments
