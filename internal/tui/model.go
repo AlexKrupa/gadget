@@ -87,10 +87,10 @@ type Model struct {
 	operationStartTime time.Time
 
 	// UI components
-	keys    KeyMap
-	help    help.Model
+	keys      KeyMap
+	help      help.Model
 	textInput textinput.Model
-	spinner spinner.Model
+	spinner   spinner.Model
 }
 
 // NewModel creates a new TUI model
@@ -110,13 +110,13 @@ func NewModel(cfg *config.Config) Model {
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
 		settingsFeature:      settings.NewSettingsFeature(cfg),
 	}
-	
+
 	// Initialize UI components
 	m.keys = DefaultKeyMap()
 	m.help = help.New()
 	m.textInput = newTextInput()
 	m.spinner = newSpinner()
-	
+
 	m.filteredCommands = m.filterCommands()
 	return m
 }
@@ -316,7 +316,6 @@ func (m Model) fuzzyMatchStringScore(str, filter string) int {
 
 	return 0
 }
-
 
 // Init initializes the model (required by Bubble Tea)
 func (m Model) Init() tea.Cmd {
@@ -1072,16 +1071,16 @@ func (m Model) renderDeviceSelection() string {
 // renderTextInput renders the text input screen
 func (m Model) renderTextInput() string {
 	var s []string
-	
+
 	// Split prompt into lines
 	promptLines := strings.Split(m.textInputPrompt, "\n")
-	
+
 	// Add all lines except the last one (which ends with ":")
 	if len(promptLines) > 1 {
 		s = append(s, promptLines[:len(promptLines)-1]...)
 		s = append(s, "")
 	}
-	
+
 	// Add the last line (the label) and input on separate lines with spacing
 	lastLine := promptLines[len(promptLines)-1]
 	s = append(s, lastLine)

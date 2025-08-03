@@ -10,11 +10,11 @@ type KeyMap struct {
 	Quit key.Binding
 
 	// Menu mode keys
-	Up       key.Binding
-	Down     key.Binding
-	Enter    key.Binding
-	Search   key.Binding
-	Escape   key.Binding
+	Up        key.Binding
+	Down      key.Binding
+	Enter     key.Binding
+	Search    key.Binding
+	Escape    key.Binding
 	Backspace key.Binding
 
 	// Device/Emulator selection keys
