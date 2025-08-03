@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"adx/internal/adb"
-	"adx/internal/config"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/config"
 	"strconv"
 	"strings"
 	"time"

@@ -1,10 +1,10 @@
 package wifi
 
 import (
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/tui/messaging"
 	"fmt"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/tui/messaging"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"

@@ -1,10 +1,10 @@
 package settings
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/tui/messaging"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/tui/messaging"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

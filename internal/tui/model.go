@@ -1,15 +1,15 @@
 package tui
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/tui/core"
-	"adx/internal/tui/features/devices"
-	"adx/internal/tui/features/media"
-	"adx/internal/tui/features/settings"
-	"adx/internal/tui/features/wifi"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/tui/core"
+	"gadget/internal/tui/features/devices"
+	"gadget/internal/tui/features/media"
+	"gadget/internal/tui/features/settings"
+	"gadget/internal/tui/features/wifi"
 	"sort"
 	"strings"
 	"time"
@@ -61,32 +61,26 @@ type Model struct {
 	err             error
 	quitting        bool
 
-	// Log system
 	logHistory    []LogEntry
 	maxLogEntries int
 	loading       bool
 
-	// Features
 	devicesFeature          *devices.DevicesFeature
 	mediaFeature            *media.MediaFeature
 	wifiFeature             *wifi.WiFiFeature
 	settingsFeature         *settings.SettingsFeature
 	selectedDeviceForAction adb.Device
 
-	// Text input state
 	textInputPrompt string
 	textInputAction string
 
-	// Command search state
 	searchFilter         string
 	filteredCommands     []Command
 	selectedCommandIndex int
 	searchMode           bool
 
-	// Progress tracking
 	operationStartTime time.Time
 
-	// UI components
 	keys      KeyMap
 	help      help.Model
 	textInput textinput.Model
@@ -111,7 +105,6 @@ func NewModel(cfg *config.Config) Model {
 		settingsFeature:      settings.NewSettingsFeature(cfg),
 	}
 
-	// Initialize UI components
 	m.keys = DefaultKeyMap()
 	m.help = help.New()
 	m.textInput = newTextInput()
@@ -141,7 +134,6 @@ func newSpinner() spinner.Model {
 
 // addLogEntry adds a new log entry and maintains the history limit
 func (m *Model) addLogEntry(message string, logType LogType) {
-	// Normalize indentation and whitespace
 	normalizedMessage := strings.TrimSpace(strings.ReplaceAll(message, "\t", "  "))
 
 	entry := LogEntry{
@@ -152,12 +144,10 @@ func (m *Model) addLogEntry(message string, logType LogType) {
 
 	m.logHistory = append(m.logHistory, entry)
 
-	// Keep only the last maxLogEntries
 	if len(m.logHistory) > m.maxLogEntries {
 		m.logHistory = m.logHistory[len(m.logHistory)-m.maxLogEntries:]
 	}
 
-	// Clear old error for backward compatibility
 	m.err = nil
 }
 
@@ -195,7 +185,6 @@ func (m Model) filterCommands() []Command {
 	}
 
 	var matches []CommandMatch
-	// Remove the leading "/" for actual filtering
 	filter := strings.ToLower(strings.TrimPrefix(m.searchFilter, "/"))
 
 	for _, cmd := range getAvailableCommands() {
@@ -204,12 +193,10 @@ func (m Model) filterCommands() []Command {
 		}
 	}
 
-	// Sort by score (higher is better)
 	sort.Slice(matches, func(i, j int) bool {
 		return matches[i].Score > matches[j].Score
 	})
 
-	// Extract commands from matches
 	var filtered []Command
 	for _, match := range matches {
 		filtered = append(filtered, match.Command)
@@ -901,7 +888,7 @@ func (m Model) View() string {
 	header := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("86")).
-		Render("Android Tools CLI")
+		Render("Go-go Gadget…")
 
 	s.WriteString(header + "\n")
 

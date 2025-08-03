@@ -1,8 +1,8 @@
 package settings
 
 import (
-	"adx/internal/commands"
-	"adx/internal/config"
+	"gadget/internal/commands"
+	"gadget/internal/config"
 )
 
 // SettingsFeature handles device settings operations

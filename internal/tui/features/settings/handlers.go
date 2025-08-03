@@ -1,9 +1,9 @@
 package settings
 
 import (
-	"adx/internal/adb"
-	"adx/internal/tui/messaging"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/tui/messaging"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

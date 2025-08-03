@@ -1,8 +1,8 @@
 package wifi
 
 import (
-	"adx/internal/tui/messaging"
 	"fmt"
+	"gadget/internal/tui/messaging"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

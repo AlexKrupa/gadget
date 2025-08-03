@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"adx/internal/tui/messaging"
+	"gadget/internal/tui/messaging"
 )
 
 // Type aliases for backward compatibility

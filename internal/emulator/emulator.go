@@ -1,10 +1,10 @@
 package emulator
 
 import (
-	"adx/internal/config"
-	"adx/internal/display"
 	"bufio"
 	"fmt"
+	"gadget/internal/config"
+	"gadget/internal/display"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +33,6 @@ func (a AVD) String() string {
 func (a AVD) GetExtendedInfo() string {
 	var info []string
 
-	// API Level
 	if a.APILevel != "" {
 		info = append(info, fmt.Sprintf("API %s", a.APILevel))
 	}
@@ -44,7 +43,6 @@ func (a AVD) GetExtendedInfo() string {
 		info = append(info, fmt.Sprintf("%s %s", display.IconCPU, cpuDisplay))
 	}
 
-	// Screen Resolution
 	if a.Resolution != "" {
 		info = append(info, fmt.Sprintf("%s %s", display.IconScreen, a.Resolution))
 	}
@@ -80,7 +78,6 @@ func getAVDsFromDirectory() ([]AVD, error) {
 		if strings.HasSuffix(entry.Name(), ".ini") {
 			avdName := strings.TrimSuffix(entry.Name(), ".ini")
 
-			// Read the .ini file to get target and path info
 			iniPath := filepath.Join(avdDir, entry.Name())
 
 			target, actualPath := readTargetAndPathFromIni(iniPath)
@@ -100,7 +97,6 @@ func getAVDsFromDirectory() ([]AVD, error) {
 				Path:   actualPath,
 			}
 
-			// Populate with detailed info if available
 			if avdDetails != nil {
 				avd.DisplayName = avdDetails.DisplayName
 				avd.Architecture = avdDetails.Architecture
@@ -202,7 +198,6 @@ func readAVDDetails(configPath string) *AVDDetails {
 		}
 	}
 
-	// Build resolution if we have both width and height
 	if width != "" && height != "" {
 		details.Resolution = width + "x" + height
 	}
@@ -223,7 +218,6 @@ func SelectAVD(cfg *config.Config, avdName string) (*AVD, error) {
 		return nil, fmt.Errorf("no AVDs found")
 	}
 
-	// If AVD name specified, find it
 	if avdName != "" {
 		for _, avd := range avds {
 			if avd.Name == avdName {
@@ -233,12 +227,10 @@ func SelectAVD(cfg *config.Config, avdName string) (*AVD, error) {
 		return nil, fmt.Errorf("AVD with name %s not found", avdName)
 	}
 
-	// If only one AVD, use it
 	if len(avds) == 1 {
 		return &avds[0], nil
 	}
 
-	// Multiple AVDs, require explicit selection
 	fmt.Println("Multiple AVDs available. Please specify AVD with -value flag:")
 	for _, avd := range avds {
 		fmt.Printf("  %s\n", avd.String())
@@ -250,12 +242,10 @@ func SelectAVD(cfg *config.Config, avdName string) (*AVD, error) {
 func OpenConfigInEditor(avd AVD) error {
 	configPath := filepath.Join(avd.Path, AVDConfigFile)
 
-	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return fmt.Errorf("AVD config file not found: %s", configPath)
 	}
 
-	// Get editor from environment, default to vi
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vi"
@@ -263,7 +253,6 @@ func OpenConfigInEditor(avd AVD) error {
 
 	fmt.Printf("Opening AVD config for %s in %s...\n", avd.Name, editor)
 
-	// Execute editor command
 	cmd := exec.Command(editor, configPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

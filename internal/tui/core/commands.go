@@ -1,6 +1,6 @@
 package core
 
-import "adx/internal/registry"
+import "gadget/internal/registry"
 
 // Delegate to registry package for command definitions
 func GetAvailableCommands() []Command {

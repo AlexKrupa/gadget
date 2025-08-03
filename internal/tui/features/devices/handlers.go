@@ -1,9 +1,9 @@
 package devices
 
 import (
-	"adx/internal/emulator"
-	"adx/internal/tui/messaging"
 	"fmt"
+	"gadget/internal/emulator"
+	"gadget/internal/tui/messaging"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

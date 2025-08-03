@@ -1,9 +1,9 @@
 package adb
 
 import (
-	"adx/internal/display"
 	"bufio"
 	"fmt"
+	"gadget/internal/display"
 	"os"
 	"os/exec"
 	"path/filepath"

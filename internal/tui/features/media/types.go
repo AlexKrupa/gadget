@@ -1,8 +1,8 @@
 package media
 
 import (
-	"adx/internal/commands"
-	"adx/internal/config"
+	"gadget/internal/commands"
+	"gadget/internal/config"
 )
 
 // ScreenshotOperation defines the type of screenshot operation

@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/display"
-	"adx/internal/emulator"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/display"
+	"gadget/internal/emulator"
 	"os"
 	"os/signal"
 	"syscall"
@@ -40,7 +40,6 @@ func ExecuteCommand(cfg *config.Config, command, deviceSerial, ip, code, value s
 	return executor(cfg, deviceSerial, ip, code, value)
 }
 
-// Command execution wrapper functions
 func executeScreenshot(cfg *config.Config, deviceSerial, _, _, _ string) error {
 	return ExecuteScreenshotDirect(cfg, deviceSerial)
 }
@@ -109,7 +108,6 @@ func selectDevice(cfg *config.Config, deviceSerial string) (adb.Device, error) {
 		return adb.Device{}, fmt.Errorf("no devices connected")
 	}
 
-	// If device serial specified, find it
 	if deviceSerial != "" {
 		for _, device := range devices {
 			if device.Serial == deviceSerial {
@@ -119,12 +117,10 @@ func selectDevice(cfg *config.Config, deviceSerial string) (adb.Device, error) {
 		return adb.Device{}, fmt.Errorf("device with serial %s not found", deviceSerial)
 	}
 
-	// If only one device, use it
 	if len(devices) == 1 {
 		return devices[0], nil
 	}
 
-	// Multiple devices, require explicit selection
 	fmt.Println("Multiple devices connected. Please specify device with -device flag:")
 	for _, device := range devices {
 		fmt.Printf("  %s\n", device.String())

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"adx/internal/cli"
-	"adx/internal/config"
-	"adx/internal/registry"
-	"adx/internal/tui"
 	"flag"
 	"fmt"
+	"gadget/internal/cli"
+	"gadget/internal/config"
+	"gadget/internal/registry"
+	"gadget/internal/tui"
 	"os"
 	"strings"
 
@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	// Create configuration
 	cfg := config.NewConfig()
 
 	// Check if adb exists
@@ -24,11 +23,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get available commands for help text
 	availableCommands := registry.GetAvailableCommandNames()
 	commandHelp := fmt.Sprintf("Command to execute directly (%s)", strings.Join(availableCommands, ", "))
 
-	// Parse command line arguments
 	command := flag.String("command", "", commandHelp)
 	deviceSerial := flag.String("device", "", "Device serial for device-specific commands")
 	ip := flag.String("ip", "", "IP address for WiFi commands")
@@ -36,7 +33,6 @@ func main() {
 	value := flag.String("value", "", "Value for setting commands (DPI, font size, screen size)")
 	flag.Parse()
 
-	// Get remaining arguments after flags
 	args := flag.Args()
 
 	// Determine command from either flag or first positional argument
@@ -50,7 +46,6 @@ func main() {
 
 	// If no command specified, start TUI
 	if cmdToExecute == "" {
-		// Create and start the TUI
 		model := tui.NewModel(cfg)
 		program := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -61,10 +56,7 @@ func main() {
 		return
 	}
 
-	// Parse positional arguments based on command
 	parsedArgs := parsePositionalArgs(cmdToExecute, args, *deviceSerial, *ip, *code, *value)
-
-	// Execute direct command
 	if err := executeDirectCommand(cfg, cmdToExecute, parsedArgs.device, parsedArgs.ip, parsedArgs.code, parsedArgs.value); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -82,7 +74,6 @@ type ParsedArgs struct {
 // ArgumentParser defines how to parse arguments for a specific command
 type ArgumentParser func(args []string, flags ParsedArgs) ParsedArgs
 
-// Command argument parsers
 var argumentParsers = map[string]ArgumentParser{
 	"pair-wifi":            parsePairWiFiArgs,
 	"connect-wifi":         parseWiFiArgs,
@@ -136,7 +127,6 @@ func parseWiFiArgs(args []string, flags ParsedArgs) ParsedArgs {
 func parseSettingArgs(args []string, flags ParsedArgs) ParsedArgs {
 	result := flags
 	if len(args) >= 1 && result.value == "" {
-		// If it looks like a device serial, treat as device; otherwise treat as value
 		if result.device == "" && (strings.Contains(args[0], "emulator") || strings.Contains(args[0], ":") || len(args) > 1) {
 			result.device = args[0]
 			if len(args) >= 2 {

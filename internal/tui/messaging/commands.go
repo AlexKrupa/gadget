@@ -1,16 +1,14 @@
 package messaging
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/emulator"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/emulator"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-// Command factories for async operations
 
 // LoadDevicesCmd returns a command that loads connected devices
 func LoadDevicesCmd(cfg *config.Config) tea.Cmd {
@@ -42,7 +40,6 @@ func ChangeSettingCmd(cfg *config.Config, device adb.Device, settingType command
 	return func() tea.Msg {
 		handler := commands.GetSettingHandler(settingType)
 
-		// Validate input first
 		if err := handler.ValidateInput(value); err != nil {
 			return SettingChangedMsg{
 				SettingType: settingType,

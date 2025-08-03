@@ -1,9 +1,9 @@
 package messaging
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/emulator"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/emulator"
 )
 
 // Base message types for async operations

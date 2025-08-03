@@ -1,4 +1,4 @@
-# ADX - Android Debug... X?
+# Gadget - Android Debug Tools
 
 A command-line Android debugging tool built in Go that provides both TUI (terminal user interface) and direct command-line interfaces for common Android development tasks.
 
@@ -9,7 +9,7 @@ A command-line Android debugging tool built in Go that provides both TUI (termin
 Run the TUI interface for interactive device and emulator management:
 
 ```bash
-./adx
+./gadget
 ```
 
 ### CLI mode (direct commands)
@@ -18,18 +18,18 @@ Arguments can be passed positionally (in order) or with named flags:
 
 ```bash
 # Positional arguments (in order)
-./adx pair-wifi "192.168.1.100:5555" "123456"
-./adx change-dpi "480"
-./adx launch-emulator "Pixel_6_API_34"
+./gadget pair-wifi "192.168.1.100:5555" "123456"
+./gadget change-dpi "480"
+./gadget launch-emulator "Pixel_6_API_34"
 
 # Named flags (any order)
-./adx pair-wifi -ip "192.168.1.100:5555" -code "123456"
-./adx change-dpi -value "480" -device "emulator-5554"
-./adx launch-emulator -value "Pixel_6_API_34"
+./gadget pair-wifi -ip "192.168.1.100:5555" -code "123456"
+./gadget change-dpi -value "480" -device "emulator-5554"
+./gadget launch-emulator -value "Pixel_6_API_34"
 
 # Alternative command syntax
-./adx -command pair-wifi -ip "192.168.1.100:5555" -code "123456"
-./adx -command change-dpi -value "480"
+./gadget -command pair-wifi -ip "192.168.1.100:5555" -code "123456"
+./gadget -command change-dpi -value "480"
 ```
 
 ## CLI commands
@@ -60,7 +60,7 @@ Arguments can be passed positionally (in order) or with named flags:
 ### Build
 
 ```bash
-go build -o adx
+go build -o gadget
 ```
 
 ### Configuration
@@ -100,7 +100,7 @@ go mod tidy
 gofmt -s -w .
 
 # Build binary
-go build -o adx
+go build -o gadget
 
 # Run tests (when implemented)
 go test ./...

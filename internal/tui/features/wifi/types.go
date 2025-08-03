@@ -1,7 +1,7 @@
 package wifi
 
 import (
-	"adx/internal/config"
+	"gadget/internal/config"
 )
 
 // WiFiOperation defines the type of WiFi operation

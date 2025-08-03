@@ -1,14 +1,14 @@
 package tui
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/emulator"
-	"adx/internal/tui/features/devices"
-	"adx/internal/tui/features/media"
-	"adx/internal/tui/features/settings"
-	"adx/internal/tui/features/wifi"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/emulator"
+	"gadget/internal/tui/features/devices"
+	"gadget/internal/tui/features/media"
+	"gadget/internal/tui/features/settings"
+	"gadget/internal/tui/features/wifi"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +26,6 @@ func loadAVDs(cfg *config.Config) tea.Cmd {
 	return devices.LoadAvdsCmd(cfg)
 }
 
-// Delegate screenshot and recording operations to media feature
 func takeScreenshot(cfg *config.Config, device adb.Device) tea.Cmd {
 	return media.TakeScreenshotCmd(cfg, device)
 }
@@ -43,7 +42,6 @@ func stopAndSaveRecording(recording *commands.ScreenRecording) tea.Cmd {
 	return media.StopAndSaveRecordingCmd(recording)
 }
 
-// Delegate settings operations to settings feature
 func getCurrentSetting(cfg *config.Config, device adb.Device, settingType commands.SettingType) tea.Cmd {
 	return settings.LoadSettingCmd(cfg, device, settingType)
 }
@@ -52,7 +50,6 @@ func changeSetting(cfg *config.Config, device adb.Device, settingType commands.S
 	return settings.ChangeSettingCmd(cfg, device, settingType, value)
 }
 
-// Delegate WiFi operations to WiFi feature
 func connectWiFi(cfg *config.Config, ipAndPort string) tea.Cmd {
 	return wifi.ConnectWiFiCmd(cfg, ipAndPort)
 }
@@ -69,7 +66,6 @@ func pairWiFi(cfg *config.Config, ipAndPort, pairingCode string) tea.Cmd {
 func configureEmulatorCmd(cfg *config.Config, avd emulator.AVD) tea.Cmd {
 	configPath := filepath.Join(avd.Path, emulator.AVDConfigFile)
 
-	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return func() tea.Msg {
 			return emulatorConfigureDoneMsg{
@@ -79,16 +75,13 @@ func configureEmulatorCmd(cfg *config.Config, avd emulator.AVD) tea.Cmd {
 		}
 	}
 
-	// Get editor from environment, default to vi
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vi"
 	}
 
-	// Create the command to run the editor
 	cmd := exec.Command(editor, configPath)
 
-	// Use tea.ExecProcess to suspend TUI and run editor
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		if err != nil {
 			return emulatorConfigureDoneMsg{

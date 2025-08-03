@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"adx/internal/adb"
-	"adx/internal/config"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/config"
 	"strconv"
 	"strings"
 )
@@ -22,7 +22,6 @@ func GetCurrentFontSize(cfg *config.Config, device adb.Device) (*FontSizeInfo, e
 		return nil, fmt.Errorf("failed to get current font size: %w", err)
 	}
 
-	// Parse output (e.g., "1.0" or "1.2")
 	currentStr := strings.TrimSpace(output)
 	if currentStr == "null" || currentStr == "" {
 		// Default font scale is 1.0 when not set

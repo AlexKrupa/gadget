@@ -1,12 +1,12 @@
 package media
 
 import (
-	"adx/internal/adb"
-	"adx/internal/commands"
-	"adx/internal/config"
-	"adx/internal/tui/core"
-	"adx/internal/tui/messaging"
 	"fmt"
+	"gadget/internal/adb"
+	"gadget/internal/commands"
+	"gadget/internal/config"
+	"gadget/internal/tui/core"
+	"gadget/internal/tui/messaging"
 	"path/filepath"
 	"time"
 

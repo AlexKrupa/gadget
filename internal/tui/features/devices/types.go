@@ -1,9 +1,9 @@
 package devices
 
 import (
-	"adx/internal/adb"
-	"adx/internal/config"
-	"adx/internal/emulator"
+	"gadget/internal/adb"
+	"gadget/internal/config"
+	"gadget/internal/emulator"
 )
 
 // DevicesFeature handles device selection and emulator management

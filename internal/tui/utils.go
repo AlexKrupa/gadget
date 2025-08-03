@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"adx/internal/tui/core"
+	"gadget/internal/tui/core"
 )
 
 // Delegate to core functions
