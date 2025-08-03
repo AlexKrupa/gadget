@@ -80,6 +80,7 @@ type Model struct {
 	searchFilter         string
 	filteredCommands     []Command
 	selectedCommandIndex int
+	searchMode           bool
 
 	// Progress tracking
 	operationStartTime time.Time
@@ -95,6 +96,7 @@ func NewModel(cfg *config.Config) Model {
 		loading:              true,
 		searchFilter:         "",
 		selectedCommandIndex: 0,
+		searchMode:           false,
 		logHistory:           make([]LogEntry, 0),
 		maxLogEntries:        5, // Keep last 5 log entries
 		devicesFeature:       devices.NewDevicesFeature(cfg),
@@ -159,12 +161,13 @@ type CommandMatch struct {
 
 // filterCommands applies fuzzy search to the command list and sorts by score
 func (m Model) filterCommands() []Command {
-	if m.searchFilter == "" {
+	if !m.searchMode || m.searchFilter == "" || m.searchFilter == "/" {
 		return getAvailableCommands()
 	}
 
 	var matches []CommandMatch
-	filter := strings.ToLower(m.searchFilter)
+	// Remove the leading "/" for actual filtering
+	filter := strings.ToLower(strings.TrimPrefix(m.searchFilter, "/"))
 
 	for _, cmd := range getAvailableCommands() {
 		if score := m.fuzzyMatchScore(cmd, filter); score > 0 {
@@ -451,8 +454,9 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "esc":
-			// Clear search filter if one exists
-			if m.searchFilter != "" {
+			// Clear search mode and filter if active
+			if m.searchMode {
+				m.searchMode = false
 				m.searchFilter = ""
 				m.filteredCommands = m.filterCommands()
 				m.selectedCommandIndex = 0
@@ -474,8 +478,13 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "backspace":
-			if len(m.searchFilter) > 0 {
+			if m.searchMode && len(m.searchFilter) > 0 {
 				m.searchFilter = m.searchFilter[:len(m.searchFilter)-1]
+				// Exit search mode if only "/" remains or filter becomes empty
+				if m.searchFilter == "/" || m.searchFilter == "" {
+					m.searchMode = false
+					m.searchFilter = ""
+				}
 				m.filteredCommands = m.filterCommands()
 				// Reset selection if it's out of bounds
 				if m.selectedCommandIndex >= len(m.filteredCommands) {
@@ -486,9 +495,19 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			// Handle typing for search
 			if len(msg.String()) == 1 {
-				m.searchFilter += msg.String()
-				m.filteredCommands = m.filterCommands()
-				m.selectedCommandIndex = 0 // Reset to first item
+				char := msg.String()
+				if char == "/" && !m.searchMode {
+					// Enter search mode
+					m.searchMode = true
+					m.searchFilter = "/"
+					m.filteredCommands = m.filterCommands()
+					m.selectedCommandIndex = 0
+				} else if m.searchMode {
+					// Add character to search filter when in search mode
+					m.searchFilter += char
+					m.filteredCommands = m.filterCommands()
+					m.selectedCommandIndex = 0 // Reset to first item
+				}
 			}
 			return m, nil
 		}
@@ -896,10 +915,10 @@ func (m Model) View() string {
 	var footerText string
 	switch m.mode {
 	case ModeMenu:
-		if m.searchFilter != "" {
-			footerText = "Type to search • ↑↓ to navigate • Enter to select • Esc to clear filter • Ctrl+C to quit"
+		if m.searchMode {
+			footerText = "Type to filter • ↑↓ to navigate • Enter to select • Esc to exit search • Backspace to clear • Ctrl+C to quit"
 		} else {
-			footerText = "Type to search • ↑↓ to navigate • Enter to select • Ctrl+C to quit"
+			footerText = "/ to search • ↑↓ to navigate • Enter to select • Ctrl+C to quit"
 		}
 	default:
 		footerText = "Press Ctrl+C to quit"
@@ -919,13 +938,18 @@ func (m Model) renderMainMenu() string {
 
 	// Header
 	s.WriteString("Available commands")
-	if m.searchFilter != "" {
-		s.WriteString(fmt.Sprintf(" (filter: %s)", m.searchFilter))
+	if m.searchMode && m.searchFilter != "" {
+		displayFilter := strings.TrimPrefix(m.searchFilter, "/")
+		if displayFilter == "" {
+			s.WriteString(" (search mode: type to filter)")
+		} else {
+			s.WriteString(fmt.Sprintf(" (filter: %s)", displayFilter))
+		}
 	}
 	s.WriteString(":\n\n")
 
-	if m.searchFilter == "" {
-		// Show categorized commands when no filter
+	if !m.searchMode || m.searchFilter == "" || m.searchFilter == "/" {
+		// Show categorized commands when not in search mode or no effective filter
 		categories := getCommandCategories()
 		currentIndex := 0
 
@@ -1100,12 +1124,17 @@ func (m Model) renderStatusBar() string {
 	}
 
 	// Active filter
-	if m.searchFilter != "" {
-		statusItems = append(statusItems, fmt.Sprintf("Filter: '%s'", m.searchFilter))
-		if len(m.filteredCommands) > 0 {
-			statusItems = append(statusItems, fmt.Sprintf("Commands: %d/%d", len(m.filteredCommands), len(getAvailableCommands())))
-		} else {
-			statusItems = append(statusItems, "No matching commands")
+	if m.searchMode {
+		if m.searchFilter == "/" {
+			statusItems = append(statusItems, "Search mode active")
+		} else if len(m.searchFilter) > 1 {
+			displayFilter := strings.TrimPrefix(m.searchFilter, "/")
+			statusItems = append(statusItems, fmt.Sprintf("Filter: '%s'", displayFilter))
+			if len(m.filteredCommands) > 0 {
+				statusItems = append(statusItems, fmt.Sprintf("Commands: %d/%d", len(m.filteredCommands), len(getAvailableCommands())))
+			} else {
+				statusItems = append(statusItems, "No matching commands")
+			}
 		}
 	}
 
