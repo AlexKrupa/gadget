@@ -1,4 +1,4 @@
-# ADX - Android debugging experience
+# ADX - Android Debug... X?
 
 A command-line Android debugging tool built in Go that provides both TUI (terminal user interface) and direct command-line interfaces for common Android development tasks.
 
@@ -76,7 +76,8 @@ The tool automatically detects your Android SDK installation:
 
 | Library | Purpose |
 |---------|---------|
-| [Bubble Tea](https://github.com/charmbracelet/bubbletea) | Terminal UI framework for interactive TUI interface |
+| [Bubble Tea](https://github.com/charmbracelet/bubbletea) | TUI framework |
+| [Bubbles](https://github.com/charmbracelet/bubbles) | Components for Bubble Tea |
 | [Lip Gloss](https://github.com/charmbracelet/lipgloss) | Terminal styling and layout for consistent UI rendering |
 | [Cobra](https://github.com/spf13/cobra) | CLI framework for command parsing and flag handling |
 
