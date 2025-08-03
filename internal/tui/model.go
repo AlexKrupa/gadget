@@ -936,17 +936,15 @@ func (m Model) View() string {
 func (m Model) renderMainMenu() string {
 	var s strings.Builder
 
-	// Header
-	s.WriteString("Available commands")
+	// Header - show search status if active
 	if m.searchMode && m.searchFilter != "" {
 		displayFilter := strings.TrimPrefix(m.searchFilter, "/")
 		if displayFilter == "" {
-			s.WriteString(" (search mode: type to filter)")
+			s.WriteString("(search mode: type to filter)\n\n")
 		} else {
-			s.WriteString(fmt.Sprintf(" (filter: %s)", displayFilter))
+			s.WriteString(fmt.Sprintf("(filter: %s)\n\n", displayFilter))
 		}
 	}
-	s.WriteString(":\n\n")
 
 	if !m.searchMode || m.searchFilter == "" || m.searchFilter == "/" {
 		// Show categorized commands when not in search mode or no effective filter
