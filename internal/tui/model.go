@@ -109,26 +109,34 @@ func NewModel(cfg *config.Config) Model {
 		mediaFeature:         media.NewMediaFeature(cfg),
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
 		settingsFeature:      settings.NewSettingsFeature(cfg),
-		keys:                 DefaultKeyMap(),
-		help:                 help.New(),
 	}
 	
-	// Initialize text input component
+	// Initialize UI components
+	m.keys = DefaultKeyMap()
+	m.help = help.New()
+	m.textInput = newTextInput()
+	m.spinner = newSpinner()
+	
+	m.filteredCommands = m.filterCommands()
+	return m
+}
+
+// newTextInput creates and configures a new text input component
+func newTextInput() textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = "Enter value..."
 	ti.Focus()
 	ti.CharLimit = 156
 	ti.Width = 50
-	m.textInput = ti
-	
-	// Initialize spinner component
+	return ti
+}
+
+// newSpinner creates and configures a new spinner component
+func newSpinner() spinner.Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	m.spinner = s
-	
-	m.filteredCommands = m.filterCommands()
-	return m
+	return s
 }
 
 // addLogEntry adds a new log entry and maintains the history limit

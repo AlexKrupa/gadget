@@ -31,8 +31,7 @@ type KeyMap struct {
 	StopRecording key.Binding
 
 	// Context-specific escape keys
-	EscapeBack key.Binding // For going back (device/emulator selection)
-	EscapeSearchExit key.Binding // For exiting search (menu)
+	EscapeBack key.Binding // For going back
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -68,10 +67,6 @@ func DefaultKeyMap() KeyMap {
 		EscapeBack: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
-		),
-		EscapeSearchExit: key.NewBinding(
-			key.WithKeys("esc"),
-			key.WithHelp("esc", "exit search"),
 		),
 		Backspace: key.NewBinding(
 			key.WithKeys("backspace"),
@@ -122,14 +117,19 @@ func (k KeyMap) MenuKeys(searchMode bool) []key.Binding {
 	return []key.Binding{k.Search, k.Up, k.Down, k.Enter, k.Quit}
 }
 
+// SelectionKeys returns keys available in selection modes (device/emulator)
+func (k KeyMap) SelectionKeys() []key.Binding {
+	return []key.Binding{k.VimUp, k.VimDown, k.Enter, k.EscapeBack, k.Quit}
+}
+
 // DeviceSelectKeys returns keys available in device selection mode
 func (k KeyMap) DeviceSelectKeys() []key.Binding {
-	return []key.Binding{k.VimUp, k.VimDown, k.Enter, k.EscapeBack, k.Quit}
+	return k.SelectionKeys()
 }
 
 // EmulatorSelectKeys returns keys available in emulator selection mode
 func (k KeyMap) EmulatorSelectKeys() []key.Binding {
-	return []key.Binding{k.VimUp, k.VimDown, k.Enter, k.EscapeBack, k.Quit}
+	return k.SelectionKeys()
 }
 
 // TextInputKeys returns keys available in text input mode
