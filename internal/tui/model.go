@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -85,6 +87,10 @@ type Model struct {
 	// Progress tracking
 	operationStartTime time.Time
 	progressTicker     int // For animated progress indicators
+
+	// Key bindings and help
+	keys KeyMap
+	help help.Model
 }
 
 // NewModel creates a new TUI model
@@ -103,6 +109,8 @@ func NewModel(cfg *config.Config) Model {
 		mediaFeature:         media.NewMediaFeature(cfg),
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
 		settingsFeature:      settings.NewSettingsFeature(cfg),
+		keys:                 DefaultKeyMap(),
+		help:                 help.New(),
 	}
 	m.filteredCommands = m.filterCommands()
 	return m
@@ -443,17 +451,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyPress processes keyboard input
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Global key handling for quit
+	if key.Matches(msg, m.keys.Quit) {
+		return m, tea.Quit
+	}
+
 	// Global key handling for active recording
-	if m.mediaFeature.IsRecording() && msg.String() == "esc" {
+	if m.mediaFeature.IsRecording() && key.Matches(msg, m.keys.StopRecording) {
 		return m.stopRecording()
 	}
 
 	switch m.mode {
 	case ModeMenu:
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "esc":
+		if key.Matches(msg, m.keys.Escape) {
 			// Clear search mode and filter if active
 			if m.searchMode {
 				m.searchMode = false
@@ -462,22 +472,22 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.selectedCommandIndex = 0
 			}
 			return m, nil
-		case "up":
+		} else if key.Matches(msg, m.keys.Up) {
 			if m.selectedCommandIndex > 0 {
 				m.selectedCommandIndex--
 			}
 			return m, nil
-		case "down":
+		} else if key.Matches(msg, m.keys.Down) {
 			if m.selectedCommandIndex < len(m.filteredCommands)-1 {
 				m.selectedCommandIndex++
 			}
 			return m, nil
-		case "enter":
+		} else if key.Matches(msg, m.keys.Enter) {
 			if len(m.filteredCommands) > 0 && m.selectedCommandIndex < len(m.filteredCommands) {
 				return m.executeSelectedCommand()
 			}
 			return m, nil
-		case "backspace":
+		} else if key.Matches(msg, m.keys.Backspace) {
 			if m.searchMode && len(m.searchFilter) > 0 {
 				m.searchFilter = m.searchFilter[:len(m.searchFilter)-1]
 				// Exit search mode if only "/" remains or filter becomes empty
@@ -492,11 +502,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
-		default:
+		} else {
 			// Handle typing for search
 			if len(msg.String()) == 1 {
 				char := msg.String()
-				if char == "/" && !m.searchMode {
+				if key.Matches(msg, m.keys.Search) && !m.searchMode {
 					// Enter search mode
 					m.searchMode = true
 					m.searchFilter = "/"
@@ -512,64 +522,61 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case ModeDeviceSelect:
-		switch msg.String() {
-		case "esc":
+		if key.Matches(msg, m.keys.Escape) {
 			m.mode = ModeMenu
 			return m, nil
-		case "up", "k", "h":
+		} else if key.Matches(msg, m.keys.VimUp) {
 			selectedDevice := m.devicesFeature.GetSelectedDevice()
 			if selectedDevice > 0 {
 				m.devicesFeature.SetSelectedDevice(selectedDevice - 1)
 			}
 			return m, nil
-		case "down", "j", "l":
+		} else if key.Matches(msg, m.keys.VimDown) {
 			selectedDevice := m.devicesFeature.GetSelectedDevice()
 			if selectedDevice < len(m.devicesFeature.GetDevices())-1 {
 				m.devicesFeature.SetSelectedDevice(selectedDevice + 1)
 			}
 			return m, nil
-		case "enter":
+		} else if key.Matches(msg, m.keys.Enter) {
 			selectedDevice := m.devicesFeature.GetSelectedDeviceInstance()
 			if selectedDevice != nil {
 				return m.executeCommandForDevice(*selectedDevice)
 			}
 		}
 	case ModeEmulatorSelect:
-		switch msg.String() {
-		case "esc":
+		if key.Matches(msg, m.keys.Escape) {
 			m.mode = ModeMenu
 			return m, nil
-		case "up", "k", "h":
+		} else if key.Matches(msg, m.keys.VimUp) {
 			selectedEmulator := m.devicesFeature.GetSelectedEmulator()
 			if selectedEmulator > 0 {
 				m.devicesFeature.SetSelectedEmulator(selectedEmulator - 1)
 			}
 			return m, nil
-		case "down", "j", "l":
+		} else if key.Matches(msg, m.keys.VimDown) {
 			selectedEmulator := m.devicesFeature.GetSelectedEmulator()
 			if selectedEmulator < len(m.devicesFeature.GetAvds())-1 {
 				m.devicesFeature.SetSelectedEmulator(selectedEmulator + 1)
 			}
 			return m, nil
-		case "enter":
+		} else if key.Matches(msg, m.keys.Enter) {
 			return m.executeEmulatorCommand()
 		}
 	case ModeTextInput:
-		switch msg.String() {
-		case "enter":
+		if key.Matches(msg, m.keys.Submit) {
 			return m.handleTextInputSubmit()
-		case "esc":
+		} else if key.Matches(msg, m.keys.Cancel) {
 			m.mode = ModeMenu
 			m.textInput = ""
 			m.textInputPrompt = ""
 			m.textInputAction = ""
 			return m, nil
-		case "backspace":
+		} else if key.Matches(msg, m.keys.Backspace) {
 			if len(m.textInput) > 0 {
 				m.textInput = m.textInput[:len(m.textInput)-1]
 			}
 			return m, nil
-		default:
+		} else {
 			// Add character to input if it's a regular character
 			if len(msg.String()) == 1 {
 				m.textInput += msg.String()
@@ -911,22 +918,30 @@ func (m Model) View() string {
 		s.WriteString("\n" + m.renderLogHistory() + "\n")
 	}
 
-	// Footer
-	var footerText string
+	// Footer with help
+	var helpKeys []key.Binding
 	switch m.mode {
 	case ModeMenu:
-		if m.searchMode {
-			footerText = "Type to filter • ↑↓ to navigate • Enter to select • Esc to exit search • Backspace to clear • Ctrl+C to quit"
-		} else {
-			footerText = "/ to search • ↑↓ to navigate • Enter to select • Ctrl+C to quit"
-		}
+		helpKeys = m.keys.MenuKeys(m.searchMode)
+	case ModeDeviceSelect:
+		helpKeys = m.keys.DeviceSelectKeys()
+	case ModeEmulatorSelect:
+		helpKeys = m.keys.EmulatorSelectKeys()
+	case ModeTextInput:
+		helpKeys = m.keys.TextInputKeys()
 	default:
-		footerText = "Press Ctrl+C to quit"
+		helpKeys = []key.Binding{m.keys.Quit}
 	}
 
+	// Add recording-specific help if recording
+	if m.mediaFeature.IsRecording() {
+		helpKeys = m.keys.RecordingKeys()
+	}
+
+	helpView := m.help.ShortHelpView(helpKeys)
 	footer := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render(footerText)
+		Render(helpView)
 	s.WriteString("\n" + footer)
 
 	return s.String()
