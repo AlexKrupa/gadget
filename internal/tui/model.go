@@ -59,7 +59,6 @@ type Model struct {
 	selectedCommand int
 	mode            Mode
 	err             error
-	successMsg      string
 	quitting        bool
 
 	// Log system
@@ -72,14 +71,13 @@ type Model struct {
 	mediaFeature            *media.MediaFeature
 	wifiFeature             *wifi.WiFiFeature
 	settingsFeature         *settings.SettingsFeature
-	textInputPrompt         string
-	textInputAction         string
 	selectedDeviceForAction adb.Device
 
-	// Text input components
-	textInput textinput.Model
+	// Text input state
+	textInputPrompt string
+	textInputAction string
 
-	// Command search fields
+	// Command search state
 	searchFilter         string
 	filteredCommands     []Command
 	selectedCommandIndex int
@@ -88,11 +86,10 @@ type Model struct {
 	// Progress tracking
 	operationStartTime time.Time
 
-	// Key bindings and help
-	keys KeyMap
-	help help.Model
-
-	// Spinner for progress indicators
+	// UI components
+	keys    KeyMap
+	help    help.Model
+	textInput textinput.Model
 	spinner spinner.Model
 }
 
@@ -152,8 +149,7 @@ func (m *Model) addLogEntry(message string, logType LogType) {
 		m.logHistory = m.logHistory[len(m.logHistory)-m.maxLogEntries:]
 	}
 
-	// Clear old success message system for backward compatibility
-	m.successMsg = ""
+	// Clear old error for backward compatibility
 	m.err = nil
 }
 
@@ -175,7 +171,6 @@ func (m *Model) addInfo(message string) {
 // clearLogs clears all log entries
 func (m *Model) clearLogs() {
 	m.logHistory = make([]LogEntry, 0)
-	m.successMsg = ""
 	m.err = nil
 }
 
@@ -369,7 +364,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, _, _, errorMsg := m.mediaFeature.HandleRecordingStarted(msg)
 		if errorMsg != "" {
 			m.err = fmt.Errorf(errorMsg)
-			m.successMsg = ""
 		}
 		return m, nil
 	case screenRecordDoneMsg:
@@ -842,7 +836,6 @@ func (m Model) executeWiFiPair() (tea.Model, tea.Cmd) {
 func (m Model) launchEmulator() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.err = nil
-	m.successMsg = ""
 
 	_, cmd, successMsg, errorMsg := m.devicesFeature.LaunchSelectedEmulator()
 	if errorMsg != "" {
@@ -879,7 +872,6 @@ func (m Model) executeEmulatorCommand() (tea.Model, tea.Cmd) {
 func (m Model) configureEmulator() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
 	m.err = nil
-	m.successMsg = ""
 
 	selectedAVD := m.devicesFeature.GetSelectedEmulatorInstance()
 	if selectedAVD == nil {
