@@ -92,7 +92,7 @@ func (h *fontSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*Setti
 
 	return &SettingInfo{
 		Type:        SettingTypeFontSize,
-		DisplayName: "Font Size",
+		DisplayName: "Font size",
 		Current:     fmt.Sprintf("%.1f", fontInfo.Current),
 		Default:     fmt.Sprintf("%.1f", fontInfo.Default),
 		InputPrompt: "Enter new font size (e.g., 1.2):",
@@ -126,7 +126,7 @@ func (h *screenSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*Set
 
 	return &SettingInfo{
 		Type:        SettingTypeScreenSize,
-		DisplayName: "Screen Size",
+		DisplayName: "Screen size",
 		Current:     screenInfo.Current,
 		Default:     screenInfo.Physical,
 		InputPrompt: "Enter new screen size (e.g., 1080x1920):",

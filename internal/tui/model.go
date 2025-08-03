@@ -16,6 +16,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -41,9 +43,6 @@ const (
 	LogTypeError   = core.LogTypeError
 	LogTypeInfo    = core.LogTypeInfo
 )
-
-// tickMsg is sent for progress animation - keep local for now
-type tickMsg time.Time
 
 // Delegate to core functions
 func getAvailableCommands() []Command {
@@ -73,10 +72,12 @@ type Model struct {
 	mediaFeature            *media.MediaFeature
 	wifiFeature             *wifi.WiFiFeature
 	settingsFeature         *settings.SettingsFeature
-	textInput               string
 	textInputPrompt         string
 	textInputAction         string
 	selectedDeviceForAction adb.Device
+
+	// Text input components
+	textInput textinput.Model
 
 	// Command search fields
 	searchFilter         string
@@ -86,11 +87,13 @@ type Model struct {
 
 	// Progress tracking
 	operationStartTime time.Time
-	progressTicker     int // For animated progress indicators
 
 	// Key bindings and help
 	keys KeyMap
 	help help.Model
+
+	// Spinner for progress indicators
+	spinner spinner.Model
 }
 
 // NewModel creates a new TUI model
@@ -112,6 +115,21 @@ func NewModel(cfg *config.Config) Model {
 		keys:                 DefaultKeyMap(),
 		help:                 help.New(),
 	}
+	
+	// Initialize text input component
+	ti := textinput.New()
+	ti.Placeholder = "Enter value..."
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 50
+	m.textInput = ti
+	
+	// Initialize spinner component
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	m.spinner = s
+	
 	m.filteredCommands = m.filterCommands()
 	return m
 }
@@ -296,17 +314,11 @@ func (m Model) fuzzyMatchStringScore(str, filter string) int {
 	return 0
 }
 
-// doTick returns a command that sends a tickMsg after a short delay
-func doTick() tea.Cmd {
-	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
 
 // Init initializes the model (required by Bubble Tea)
 func (m Model) Init() tea.Cmd {
 	m.operationStartTime = time.Now()
-	return tea.Batch(loadDevices(m.config), doTick())
+	return tea.Batch(loadDevices(m.config), m.spinner.Tick)
 }
 
 // Update handles messages and updates the model state
@@ -314,6 +326,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	case devicesLoadedMsg:
 		_, _, _, errorMsg := m.devicesFeature.HandleDevicesLoaded(msg)
 		m.loading = false
@@ -372,6 +388,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mode = ModeMenu
 		} else {
 			m.mode = ModeTextInput
+			m.textInput.Focus()
 
 			// Show both Default/Physical and Current values
 			settingInfo := m.settingsFeature.GetCurrentSettingInfo()
@@ -379,8 +396,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				settingInfo.DisplayName, settingInfo.Default,
 				settingInfo.DisplayName, settingInfo.Current)
 
-			m.textInputPrompt = fmt.Sprintf("Device: %s\n%s\n\n%s",
-				m.selectedDeviceForAction.Serial, displayInfo, settingInfo.InputPrompt)
+			// Set contextual placeholder based on setting type
+			var placeholder string
+			switch settingInfo.Type {
+			case commands.SettingTypeDPI:
+				placeholder = settingInfo.Current
+			case commands.SettingTypeFontSize:
+				placeholder = settingInfo.Current
+			case commands.SettingTypeScreenSize:
+				placeholder = settingInfo.Current
+			default:
+				placeholder = "Enter new value..."
+			}
+			m.textInput.Placeholder = placeholder
+
+			m.textInputPrompt = fmt.Sprintf("Device: %s\n%s\n\n%s:",
+				m.selectedDeviceForAction.Serial, displayInfo, settingInfo.DisplayName)
 		}
 		return m, nil
 	case settingChangedMsg:
@@ -431,14 +462,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addSuccess(msg.Message)
 		} else {
 			m.addError(msg.Message)
-		}
-		return m, nil
-	case tickMsg:
-		m.progressTicker++
-		// Continue ticking if any operation is active
-		if m.loading || m.mediaFeature.IsActive() ||
-			m.wifiFeature.IsConnecting() || m.wifiFeature.IsDisconnecting() || m.wifiFeature.IsPairing() {
-			return m, doTick()
 		}
 		return m, nil
 	case tea.QuitMsg:
@@ -567,21 +590,15 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.handleTextInputSubmit()
 		} else if key.Matches(msg, m.keys.Cancel) {
 			m.mode = ModeMenu
-			m.textInput = ""
+			m.textInput.SetValue("")
 			m.textInputPrompt = ""
 			m.textInputAction = ""
 			return m, nil
-		} else if key.Matches(msg, m.keys.Backspace) {
-			if len(m.textInput) > 0 {
-				m.textInput = m.textInput[:len(m.textInput)-1]
-			}
-			return m, nil
 		} else {
-			// Add character to input if it's a regular character
-			if len(msg.String()) == 1 {
-				m.textInput += msg.String()
-			}
-			return m, nil
+			// Delegate to textinput component
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
 		}
 	}
 
@@ -595,7 +612,7 @@ func (m Model) executeScreenshot(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mediaFeature.StartScreenshot()
 	m.operationStartTime = time.Now()
 
-	return m, tea.Batch(takeScreenshot(m.config, device), doTick())
+	return m, tea.Batch(takeScreenshot(m.config, device), m.spinner.Tick)
 }
 
 // executeDayNightScreenshots runs the day-night screenshot command
@@ -605,7 +622,7 @@ func (m Model) executeDayNightScreenshots(device adb.Device) (tea.Model, tea.Cmd
 	m.mediaFeature.StartDayNightScreenshot()
 	m.operationStartTime = time.Now()
 
-	return m, tea.Batch(takeDayNightScreenshots(m.config, device), doTick())
+	return m, tea.Batch(takeDayNightScreenshots(m.config, device), m.spinner.Tick)
 }
 
 // executeSelectedCommand executes the currently selected command from the filtered list
@@ -628,21 +645,27 @@ func (m Model) executeSelectedCommand() (tea.Model, tea.Cmd) {
 		return m, loadAVDs(m.config)
 	case "connect-wifi":
 		m.mode = ModeTextInput
-		m.textInputPrompt = "Enter IP address or IP:port (e.g., 192.168.1.100 or 192.168.1.100:5555)\nDefaults to port 4444 if not specified"
+		m.textInput.Focus()
+		m.textInput.Placeholder = "192.168.1.100 or 192.168.1.100:5555 (defaults to port 4444)"
+		m.textInputPrompt = "Connect to WiFi device"
 		m.textInputAction = "wifi_connect"
-		m.textInput = ""
+		m.textInput.SetValue("")
 		return m, nil
 	case "pair-wifi":
 		m.mode = ModeTextInput
-		m.textInputPrompt = "Enter pairing address from phone (e.g., 192.168.3.30:43719)"
+		m.textInput.Focus()
+		m.textInput.Placeholder = "192.168.3.30:43719 (from phone's pairing dialog)"
+		m.textInputPrompt = "Pair with WiFi device"
 		m.textInputAction = "wifi_pair_address"
-		m.textInput = ""
+		m.textInput.SetValue("")
 		return m, nil
 	case "disconnect-wifi":
 		m.mode = ModeTextInput
-		m.textInputPrompt = "Enter IP address or IP:port to disconnect (e.g., 192.168.1.100 or 192.168.1.100:5555)\nDefaults to port 4444 if not specified"
+		m.textInput.Focus()
+		m.textInput.Placeholder = "192.168.1.100 or 192.168.1.100:5555 (defaults to port 4444)"
+		m.textInputPrompt = "Disconnect from WiFi device"
 		m.textInputAction = "wifi_disconnect"
-		m.textInput = ""
+		m.textInput.SetValue("")
 		return m, nil
 	case "refresh-devices":
 		m.clearLogs()
@@ -692,7 +715,7 @@ func (m Model) executeScreenRecord(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mediaFeature.StartRecording()
 	m.operationStartTime = time.Now()
 
-	return m, tea.Batch(startRecording(m.config, device), doTick())
+	return m, tea.Batch(startRecording(m.config, device), m.spinner.Tick)
 }
 
 // stopRecording stops the active recording and saves it
@@ -735,7 +758,7 @@ func (m Model) handleTextInputSubmit() (tea.Model, tea.Cmd) {
 
 	// Reset to menu if unknown action
 	m.mode = ModeMenu
-	m.textInput = ""
+	m.textInput.SetValue("")
 	m.textInputPrompt = ""
 	m.textInputAction = ""
 	return m, nil
@@ -746,8 +769,8 @@ func (m Model) executeSettingChange(settingType commands.SettingType) (tea.Model
 	// Stay in text input mode, just clear the input and send the command
 
 	// Save input and clear it
-	input := m.textInput
-	m.textInput = ""
+	input := m.textInput.Value()
+	m.textInput.SetValue("")
 
 	return m, changeSetting(m.config, m.selectedDeviceForAction, settingType, input)
 }
@@ -759,13 +782,13 @@ func (m Model) executeWiFiConnect() (tea.Model, tea.Cmd) {
 	m.operationStartTime = time.Now()
 
 	// Save input and clear it
-	input := m.textInput
-	m.textInput = ""
+	input := m.textInput.Value()
+	m.textInput.SetValue("")
 	m.textInputPrompt = ""
 	m.textInputAction = ""
 
 	cmd := m.wifiFeature.StartWiFiConnect(input)
-	return m, tea.Batch(cmd, doTick())
+	return m, tea.Batch(cmd, m.spinner.Tick)
 }
 
 // executeWiFiDisconnect processes WiFi disconnection
@@ -775,21 +798,23 @@ func (m Model) executeWiFiDisconnect() (tea.Model, tea.Cmd) {
 	m.operationStartTime = time.Now()
 
 	// Save input and clear it
-	input := m.textInput
-	m.textInput = ""
+	input := m.textInput.Value()
+	m.textInput.SetValue("")
 	m.textInputPrompt = ""
 	m.textInputAction = ""
 
 	cmd := m.wifiFeature.StartWiFiDisconnect(input)
-	return m, tea.Batch(cmd, doTick())
+	return m, tea.Batch(cmd, m.spinner.Tick)
 }
 
 // handlePairingAddressInput processes the first step of pairing (address input)
 func (m Model) handlePairingAddressInput() (tea.Model, tea.Cmd) {
 	// Store the pairing address and ask for pairing code
-	m.wifiFeature.SetPairingAddress(m.textInput)
-	m.textInput = ""
-	m.textInputPrompt = fmt.Sprintf("Enter 6-digit pairing code from phone for %s", m.wifiFeature.GetPairingAddress())
+	m.wifiFeature.SetPairingAddress(m.textInput.Value())
+	m.textInput.SetValue("")
+	m.textInput.Focus()
+	m.textInput.Placeholder = "123456 (6-digit code from phone)"
+	m.textInputPrompt = fmt.Sprintf("Enter pairing code for %s", m.wifiFeature.GetPairingAddress())
 	m.textInputAction = "wifi_pair_code"
 
 	return m, nil
@@ -802,15 +827,15 @@ func (m Model) executeWiFiPair() (tea.Model, tea.Cmd) {
 	m.operationStartTime = time.Now()
 
 	// Save pairing code and clear inputs
-	pairingCode := m.textInput
+	pairingCode := m.textInput.Value()
 	pairingAddress := m.wifiFeature.GetPairingAddress()
-	m.textInput = ""
+	m.textInput.SetValue("")
 	m.textInputPrompt = ""
 	m.textInputAction = ""
 	m.wifiFeature.ClearPairingAddress()
 
 	cmd := m.wifiFeature.StartWiFiPair(pairingAddress, pairingCode)
-	return m, tea.Batch(cmd, doTick())
+	return m, tea.Batch(cmd, m.spinner.Tick)
 }
 
 // launchEmulator starts the selected emulator
@@ -938,7 +963,7 @@ func (m Model) View() string {
 	}
 
 	footer := m.renderHelp(helpKeys)
-	s.WriteString("\n" + footer)
+	s.WriteString("\n\n" + footer)
 
 	return s.String()
 }
@@ -1040,21 +1065,28 @@ func (m Model) renderDeviceSelection() string {
 	}
 
 	// Add help using bubbles help component
-	s = append(s, "", m.renderHelp(m.keys.DeviceSelectKeys()))
+	s = append(s, "", "", m.renderHelp(m.keys.DeviceSelectKeys()))
 	return strings.Join(s, "\n")
 }
 
 // renderTextInput renders the text input screen
 func (m Model) renderTextInput() string {
-	s := []string{m.textInputPrompt, ""}
-
-	// Show text input with cursor
-	inputStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("86")).
-		Bold(true)
-
-	input := m.textInput + "█" // Simple cursor
-	s = append(s, inputStyle.Render("> "+input))
+	var s []string
+	
+	// Split prompt into lines
+	promptLines := strings.Split(m.textInputPrompt, "\n")
+	
+	// Add all lines except the last one (which ends with ":")
+	if len(promptLines) > 1 {
+		s = append(s, promptLines[:len(promptLines)-1]...)
+		s = append(s, "")
+	}
+	
+	// Add the last line (the label) and input on separate lines with spacing
+	lastLine := promptLines[len(promptLines)-1]
+	s = append(s, lastLine)
+	s = append(s, "")
+	s = append(s, m.textInput.View())
 
 	// Help is handled by global footer, don't duplicate it here
 
@@ -1076,7 +1108,7 @@ func (m Model) renderEmulatorSelection() string {
 	if len(avds) == 0 {
 		s = append(s, "No AVDs found. Create one with Android Studio or avdmanager.")
 		// For no AVDs case, just show escape key
-		s = append(s, "", m.renderHelp([]key.Binding{m.keys.EscapeBack}))
+		s = append(s, "", "", m.renderHelp([]key.Binding{m.keys.EscapeBack}))
 		return strings.Join(s, "\n")
 	}
 
@@ -1093,7 +1125,7 @@ func (m Model) renderEmulatorSelection() string {
 	}
 
 	// Add help using bubbles help component
-	s = append(s, "", m.renderHelp(m.keys.EmulatorSelectKeys()))
+	s = append(s, "", "", m.renderHelp(m.keys.EmulatorSelectKeys()))
 	return strings.Join(s, "\n")
 }
 
@@ -1190,10 +1222,6 @@ func (m Model) renderStatusBar() string {
 
 // getProgressText returns animated progress text with elapsed time
 func (m Model) getProgressText(operation string) string {
-	// Animated spinner
-	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	spinner := spinners[m.progressTicker%len(spinners)]
-
 	// Calculate elapsed time
 	elapsed := time.Since(m.operationStartTime)
 	var timeStr string
@@ -1203,7 +1231,7 @@ func (m Model) getProgressText(operation string) string {
 		timeStr = fmt.Sprintf("(%.1fs)", elapsed.Seconds())
 	}
 
-	return fmt.Sprintf("%s %s %s", spinner, operation, timeStr)
+	return fmt.Sprintf("%s %s %s", m.spinner.View(), operation, timeStr)
 }
 
 // renderHelp renders help text using the bubbles help component with consistent styling
