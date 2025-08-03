@@ -918,17 +918,16 @@ func (m Model) View() string {
 		s.WriteString("\n" + m.renderLogHistory() + "\n")
 	}
 
-	// Footer with help
+	// Footer with help (only for modes that don't handle their own help)
 	var helpKeys []key.Binding
 	switch m.mode {
 	case ModeMenu:
 		helpKeys = m.keys.MenuKeys(m.searchMode)
-	case ModeDeviceSelect:
-		helpKeys = m.keys.DeviceSelectKeys()
-	case ModeEmulatorSelect:
-		helpKeys = m.keys.EmulatorSelectKeys()
 	case ModeTextInput:
 		helpKeys = m.keys.TextInputKeys()
+	case ModeDeviceSelect, ModeEmulatorSelect:
+		// These modes handle their own help display, skip global footer
+		return s.String()
 	default:
 		helpKeys = []key.Binding{m.keys.Quit}
 	}
@@ -938,10 +937,7 @@ func (m Model) View() string {
 		helpKeys = m.keys.RecordingKeys()
 	}
 
-	helpView := m.help.ShortHelpView(helpKeys)
-	footer := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render(helpView)
+	footer := m.renderHelp(helpKeys)
 	s.WriteString("\n" + footer)
 
 	return s.String()
@@ -1043,7 +1039,8 @@ func (m Model) renderDeviceSelection() string {
 		s = append(s, fmt.Sprintf("%s%s", cursor, deviceInfo))
 	}
 
-	s = append(s, "", "Press Enter to select, Esc to go back")
+	// Add help using bubbles help component
+	s = append(s, "", m.renderHelp(m.keys.DeviceSelectKeys()))
 	return strings.Join(s, "\n")
 }
 
@@ -1059,7 +1056,7 @@ func (m Model) renderTextInput() string {
 	input := m.textInput + "█" // Simple cursor
 	s = append(s, inputStyle.Render("> "+input))
 
-	s = append(s, "", "Press Enter to submit, Esc to cancel")
+	// Help is handled by global footer, don't duplicate it here
 
 	// Show log history at bottom if available
 	if len(m.logHistory) > 0 {
@@ -1078,7 +1075,8 @@ func (m Model) renderEmulatorSelection() string {
 
 	if len(avds) == 0 {
 		s = append(s, "No AVDs found. Create one with Android Studio or avdmanager.")
-		s = append(s, "", "Press Esc to go back")
+		// For no AVDs case, just show escape key
+		s = append(s, "", m.renderHelp([]key.Binding{m.keys.EscapeBack}))
 		return strings.Join(s, "\n")
 	}
 
@@ -1094,7 +1092,8 @@ func (m Model) renderEmulatorSelection() string {
 		s = append(s, avdInfo)
 	}
 
-	s = append(s, "", "Press Enter to launch, Esc to go back")
+	// Add help using bubbles help component
+	s = append(s, "", m.renderHelp(m.keys.EmulatorSelectKeys()))
 	return strings.Join(s, "\n")
 }
 
@@ -1205,6 +1204,12 @@ func (m Model) getProgressText(operation string) string {
 	}
 
 	return fmt.Sprintf("%s %s %s", spinner, operation, timeStr)
+}
+
+// renderHelp renders help text using the bubbles help component with consistent styling
+func (m Model) renderHelp(keys []key.Binding) string {
+	helpView := m.help.ShortHelpView(keys)
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(helpView)
 }
 
 // renderLogHistory renders the log history with proper formatting and styling
