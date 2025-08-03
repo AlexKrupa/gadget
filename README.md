@@ -12,24 +12,29 @@ Run the TUI interface for interactive device and emulator management:
 ./gadget
 ```
 
+Or better, _go-go Gadget…_:
+```bash
+./ggg
+```
+
 ### CLI mode (direct commands)
 
 Arguments can be passed positionally (in order) or with named flags:
 
 ```bash
 # Positional arguments (in order)
-./gadget pair-wifi "192.168.1.100:5555" "123456"
-./gadget change-dpi "480"
-./gadget launch-emulator "Pixel_6_API_34"
+./ggg pair-wifi "192.168.1.100:5555" "123456"
+./ggg change-dpi "480"
+./ggg launch-emulator "Pixel_6_API_34"
 
 # Named flags (any order)
-./gadget pair-wifi -ip "192.168.1.100:5555" -code "123456"
-./gadget change-dpi -value "480" -device "emulator-5554"
-./gadget launch-emulator -value "Pixel_6_API_34"
+./ggg pair-wifi -ip "192.168.1.100:5555" -code "123456"
+./ggg change-dpi -value "480" -device "emulator-5554"
+./ggg launch-emulator -value "Pixel_6_API_34"
 
 # Alternative command syntax
-./gadget -command pair-wifi -ip "192.168.1.100:5555" -code "123456"
-./gadget -command change-dpi -value "480"
+./ggg -command pair-wifi -ip "192.168.1.100:5555" -code "123456"
+./ggg -command change-dpi -value "480"
 ```
 
 ## CLI commands
