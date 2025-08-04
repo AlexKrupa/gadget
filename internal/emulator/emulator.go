@@ -231,11 +231,11 @@ func SelectAVD(cfg *config.Config, avdName string) (*AVD, error) {
 		return &avds[0], nil
 	}
 
-	fmt.Println("Multiple AVDs available. Please specify AVD with -value flag:")
+	fmt.Println("Multiple AVDs available. Please specify AVD name:")
 	for _, avd := range avds {
 		fmt.Printf("  %s\n", avd.String())
 	}
-	return nil, fmt.Errorf("multiple AVDs available, please specify -value")
+	return nil, fmt.Errorf("AVD name required")
 }
 
 // OpenConfigInEditor opens the AVD's config.ini file in the user's $EDITOR

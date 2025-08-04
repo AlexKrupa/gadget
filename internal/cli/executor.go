@@ -36,7 +36,8 @@ var CommandRegistry = map[string]CommandExecutor{
 
 // NestedCommandRegistry holds nested commands and their executors
 var NestedCommandRegistry = map[string]NestedCommandExecutor{
-	"wifi": executeWiFiCommand,
+	"wifi":     executeWiFiCommand,
+	"emulator": executeEmulatorCommand,
 }
 
 // ExecuteCommand dispatches a command using the registry
@@ -336,5 +337,40 @@ func executeWiFiCommand(cfg *config.Config, args []string) error {
 		return commands.DisconnectWiFi(cfg, subArgs[0])
 	default:
 		return fmt.Errorf("unknown wifi subcommand: %s", subcommand)
+	}
+}
+
+func executeEmulatorCommand(cfg *config.Config, args []string) error {
+	if len(args) == 0 {
+		// Show help when no subcommand provided
+		fmt.Println("Emulator commands:")
+		fmt.Println("  emulator launch [avd-name]     - Launch Android emulator")
+		fmt.Println("  emulator config [avd-name]     - Edit emulator configuration")
+		fmt.Println("")
+		fmt.Println("Examples:")
+		fmt.Println("  ./gadget emulator launch")
+		fmt.Println("  ./gadget emulator launch Pixel_6_API_34")
+		fmt.Println("  ./gadget emulator config Pixel_6_API_34")
+		return nil
+	}
+
+	subcommand := args[0]
+	subArgs := args[1:]
+
+	switch subcommand {
+	case "launch":
+		var avdName string
+		if len(subArgs) > 0 {
+			avdName = subArgs[0]
+		}
+		return ExecuteLaunchEmulatorDirect(cfg, avdName)
+	case "config":
+		var avdName string
+		if len(subArgs) > 0 {
+			avdName = subArgs[0]
+		}
+		return ExecuteConfigureEmulatorDirect(cfg, avdName)
+	default:
+		return fmt.Errorf("unknown emulator subcommand: %s", subcommand)
 	}
 }

@@ -24,8 +24,7 @@ func GetAvailableCommands() []Command {
 		{"font-size", "Font size", "View or change device font size", "Device settings"},
 		{"screen-size", "Screen size", "View or change device screen size", "Device settings"},
 		{"wifi", "WiFi", "Manage WiFi device connections", "WiFi"},
-		{"launch-emulator", "Launch emulator", "Start an Android emulator", "Devices/emulators"},
-		{"configure-emulator", "Configure emulator", "Edit emulator configuration", "Devices/emulators"},
+		{"emulator", "Emulator", "Manage Android emulators", "Devices/emulators"},
 		{"refresh-devices", "Refresh devices", "Refresh the device list", "Devices/emulators"},
 	}
 }

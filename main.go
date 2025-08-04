@@ -113,15 +113,10 @@ func parsePositionalArgs(command string, args []string, flagDevice, flagIP, flag
 	return parser(args, flags)
 }
 
-// isNestedCommand checks if a command is a nested command
+// isNestedCommand checks if a command is a nested command by checking the registry
 func isNestedCommand(command string) bool {
-	nestedCommands := []string{"wifi"}
-	for _, cmd := range nestedCommands {
-		if command == cmd {
-			return true
-		}
-	}
-	return false
+	_, exists := cli.NestedCommandRegistry[command]
+	return exists
 }
 
 func parsePairWiFiArgs(args []string, flags ParsedArgs) ParsedArgs {
