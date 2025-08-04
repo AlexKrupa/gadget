@@ -119,7 +119,6 @@ type AVDDetails struct {
 	APILevel     string
 }
 
-
 // readTargetAndPathFromIni reads both target and path from AVD .ini file
 func readTargetAndPathFromIni(iniPath string) (string, string) {
 	file, err := os.Open(iniPath)

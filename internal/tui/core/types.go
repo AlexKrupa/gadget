@@ -58,4 +58,3 @@ type BaseModel struct {
 
 // TickMsg is sent for progress animation
 type TickMsg time.Time
-

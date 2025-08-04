@@ -161,7 +161,6 @@ func (m *Model) addError(message string) {
 	m.addLogEntry(message, LogTypeError)
 }
 
-
 // clearLogs clears all log entries
 func (m *Model) clearLogs() {
 	m.logHistory = make([]LogEntry, 0)

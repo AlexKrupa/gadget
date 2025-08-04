@@ -18,4 +18,3 @@ func LoadSettingCmd(cfg *config.Config, device adb.Device, settingType commands.
 func ChangeSettingCmd(cfg *config.Config, device adb.Device, settingType commands.SettingType, value string) tea.Cmd {
 	return messaging.ChangeSettingCmd(cfg, device, settingType, value)
 }
-

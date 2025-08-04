@@ -54,4 +54,3 @@ func SetFontSize(cfg *config.Config, device adb.Device, scale float64) error {
 	fmt.Printf("Font size changed to %s on device %s\n", scaleStr, device.Serial)
 	return nil
 }
-

@@ -37,4 +37,3 @@ func GetCommandCategories() []CommandCategory {
 	}
 	return categories
 }
-

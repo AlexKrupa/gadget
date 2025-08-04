@@ -78,7 +78,6 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 	return fmt.Errorf("failed to connect to %s. Device may need pairing first", ipAndPort)
 }
 
-
 // DisconnectWiFi disconnects from a WiFi device
 func DisconnectWiFi(cfg *config.Config, ipAndPort string) error {
 	adbPath := cfg.GetADBPath()

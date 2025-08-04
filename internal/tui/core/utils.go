@@ -18,4 +18,3 @@ func ShortenHomePath(path string) string {
 
 	return path
 }
-

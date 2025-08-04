@@ -74,8 +74,6 @@ func executeDPI(cfg *config.Config, deviceSerial, _, _, value string) error {
 	return ExecuteDPIDirect(cfg, deviceSerial, value)
 }
 
-
-
 func executeLaunchEmulator(cfg *config.Config, _, _, _, value string) error {
 	return ExecuteLaunchEmulatorDirect(cfg, value)
 }
@@ -182,7 +180,6 @@ func ExecuteScreenRecordDirect(cfg *config.Config, deviceSerial string) error {
 	fmt.Println("\nStopping recording...")
 	return recording.StopAndSave()
 }
-
 
 func ExecuteDPIDirect(cfg *config.Config, deviceSerial, value string) error {
 	return executeSettingCommand(cfg, deviceSerial, value, commands.SettingTypeDPI, "Physical DPI", "Current DPI")

@@ -59,4 +59,3 @@ var (
 	DocStyle = lipgloss.NewStyle().
 			Padding(1, 2, 1, 2)
 )
-

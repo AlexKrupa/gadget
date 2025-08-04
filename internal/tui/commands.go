@@ -49,7 +49,6 @@ func changeSetting(cfg *config.Config, device adb.Device, settingType commands.S
 	return settings.ChangeSettingCmd(cfg, device, settingType, value)
 }
 
-
 // configureEmulatorCmd opens the AVD configuration file in editor using tea.ExecProcess
 func configureEmulatorCmd(cfg *config.Config, avd emulator.AVD) tea.Cmd {
 	configPath := filepath.Join(avd.Path, emulator.AVDConfigFile)

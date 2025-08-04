@@ -200,7 +200,6 @@ func getAVDDisplayNameForEmulator(serial string) string {
 	return ""
 }
 
-
 // LoadExtendedInfo populates battery, Android version, screen resolution, CPU architecture, API level, and IP address for the device
 func (d *Device) LoadExtendedInfo(adbPath string) {
 	if d.Status != "device" {

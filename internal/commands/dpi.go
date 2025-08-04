@@ -75,4 +75,3 @@ func SetDPI(cfg *config.Config, device adb.Device, dpi int) error {
 	fmt.Printf("DPI changed to %d on device %s\n", dpi, device.Serial)
 	return nil
 }
-

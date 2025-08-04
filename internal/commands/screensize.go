@@ -79,4 +79,3 @@ func SetScreenSize(cfg *config.Config, device adb.Device, size string) error {
 	fmt.Printf("Screen size changed to %s on device %s\n", size, device.Serial)
 	return nil
 }
-

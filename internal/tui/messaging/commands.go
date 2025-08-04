@@ -10,7 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-
 // LoadAvdsCmd returns a command that loads available AVDs
 func LoadAvdsCmd(cfg *config.Config) tea.Cmd {
 	return func() tea.Msg {
