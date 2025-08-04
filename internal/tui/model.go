@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/commands"
@@ -99,6 +100,7 @@ func NewModel(cfg *config.Config) Model {
 		searchMode:           false,
 		logHistory:           make([]LogEntry, 0),
 		maxLogEntries:        5, // Keep last 5 log entries
+		operationStartTime:   time.Now(),
 		devicesFeature:       devices.NewDevicesFeature(cfg),
 		mediaFeature:         media.NewMediaFeature(cfg),
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
@@ -301,7 +303,6 @@ func (m Model) fuzzyMatchStringScore(str, filter string) int {
 
 // Init initializes the model (required by Bubble Tea)
 func (m Model) Init() tea.Cmd {
-	m.operationStartTime = time.Now()
 	return tea.Batch(loadDevices(m.config), m.spinner.Tick)
 }
 
@@ -318,7 +319,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, _, _, errorMsg := m.devicesFeature.HandleDevicesLoaded(msg)
 		m.loading = false
 		if errorMsg != "" {
-			m.err = fmt.Errorf(errorMsg)
+			m.err = errors.New(errorMsg)
 		} else {
 			m.err = nil
 		}
@@ -327,7 +328,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case avdsLoadedMsg:
 		_, _, _, errorMsg := m.devicesFeature.HandleAvdsLoaded(msg)
 		if errorMsg != "" {
-			m.err = fmt.Errorf(errorMsg)
+			m.err = errors.New(errorMsg)
 			m.mode = ModeMenu
 		}
 		return m, nil
@@ -352,7 +353,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case recordingStartedMsg:
 		_, _, _, errorMsg := m.mediaFeature.HandleRecordingStarted(msg)
 		if errorMsg != "" {
-			m.err = fmt.Errorf(errorMsg)
+			m.err = errors.New(errorMsg)
 		}
 		return m, nil
 	case screenRecordDoneMsg:
@@ -828,7 +829,7 @@ func (m Model) launchEmulator() (tea.Model, tea.Cmd) {
 
 	_, cmd, successMsg, errorMsg := m.devicesFeature.LaunchSelectedEmulator()
 	if errorMsg != "" {
-		m.err = fmt.Errorf(errorMsg)
+		m.err = errors.New(errorMsg)
 		return m, nil
 	} else if successMsg != "" {
 		m.addSuccess(successMsg)
