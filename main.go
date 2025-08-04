@@ -56,10 +56,18 @@ func main() {
 		return
 	}
 
-	parsedArgs := parsePositionalArgs(cmdToExecute, args, *deviceSerial, *ip, *code, *value)
-	if err := executeDirectCommand(cfg, cmdToExecute, parsedArgs.device, parsedArgs.ip, parsedArgs.code, parsedArgs.value); err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+	// Check if this is a nested command
+	if isNestedCommand(cmdToExecute) {
+		if err := cli.ExecuteNestedCommand(cfg, cmdToExecute, args); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		parsedArgs := parsePositionalArgs(cmdToExecute, args, *deviceSerial, *ip, *code, *value)
+		if err := executeDirectCommand(cfg, cmdToExecute, parsedArgs.device, parsedArgs.ip, parsedArgs.code, parsedArgs.value); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -103,6 +111,17 @@ func parsePositionalArgs(command string, args []string, flagDevice, flagIP, flag
 	}
 
 	return parser(args, flags)
+}
+
+// isNestedCommand checks if a command is a nested command
+func isNestedCommand(command string) bool {
+	nestedCommands := []string{"wifi"}
+	for _, cmd := range nestedCommands {
+		if command == cmd {
+			return true
+		}
+	}
+	return false
 }
 
 func parsePairWiFiArgs(args []string, flags ParsedArgs) ParsedArgs {

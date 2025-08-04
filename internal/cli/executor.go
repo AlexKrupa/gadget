@@ -15,6 +15,9 @@ import (
 // CommandExecutor defines the signature for command execution functions
 type CommandExecutor func(cfg *config.Config, deviceSerial, ip, code, value string) error
 
+// NestedCommandExecutor defines the signature for nested command execution functions
+type NestedCommandExecutor func(cfg *config.Config, args []string) error
+
 // CommandRegistry holds all available commands and their executors
 var CommandRegistry = map[string]CommandExecutor{
 	"screenshot":           executeScreenshot,
@@ -31,6 +34,11 @@ var CommandRegistry = map[string]CommandExecutor{
 	"refresh-devices":      executeRefreshDevices,
 }
 
+// NestedCommandRegistry holds nested commands and their executors
+var NestedCommandRegistry = map[string]NestedCommandExecutor{
+	"wifi": executeWiFiCommand,
+}
+
 // ExecuteCommand dispatches a command using the registry
 func ExecuteCommand(cfg *config.Config, command, deviceSerial, ip, code, value string) error {
 	executor, exists := CommandRegistry[command]
@@ -38,6 +46,15 @@ func ExecuteCommand(cfg *config.Config, command, deviceSerial, ip, code, value s
 		return fmt.Errorf("unknown command: %s", command)
 	}
 	return executor(cfg, deviceSerial, ip, code, value)
+}
+
+// ExecuteNestedCommand dispatches a nested command using the nested registry
+func ExecuteNestedCommand(cfg *config.Config, command string, args []string) error {
+	executor, exists := NestedCommandRegistry[command]
+	if !exists {
+		return fmt.Errorf("unknown nested command: %s", command)
+	}
+	return executor(cfg, args)
 }
 
 func executeScreenshot(cfg *config.Config, deviceSerial, _, _, _ string) error {
@@ -281,4 +298,43 @@ func ExecuteRefreshDevices(cfg *config.Config) error {
 		fmt.Printf("  %s\n", formattedInfo)
 	}
 	return nil
+}
+
+func executeWiFiCommand(cfg *config.Config, args []string) error {
+	if len(args) == 0 {
+		// Show help when no subcommand provided
+		fmt.Println("WiFi commands:")
+		fmt.Println("  wifi pair <ip:port> <code>     - Pair with WiFi device")
+		fmt.Println("  wifi connect <ip[:port]>       - Connect to WiFi device")
+		fmt.Println("  wifi disconnect <ip[:port]>    - Disconnect from WiFi device")
+		fmt.Println("")
+		fmt.Println("Examples:")
+		fmt.Println("  ./gadget wifi pair 192.168.1.100:5555 123456")
+		fmt.Println("  ./gadget wifi connect 192.168.1.100")
+		fmt.Println("  ./gadget wifi disconnect 192.168.1.100")
+		return nil
+	}
+
+	subcommand := args[0]
+	subArgs := args[1:]
+
+	switch subcommand {
+	case "pair":
+		if len(subArgs) < 2 {
+			return fmt.Errorf("wifi pair requires IP address and pairing code")
+		}
+		return commands.PairWiFiDevice(cfg, subArgs[0], subArgs[1])
+	case "connect":
+		if len(subArgs) < 1 {
+			return fmt.Errorf("wifi connect requires IP address")
+		}
+		return commands.ConnectWiFi(cfg, subArgs[0])
+	case "disconnect":
+		if len(subArgs) < 1 {
+			return fmt.Errorf("wifi disconnect requires IP address")
+		}
+		return commands.DisconnectWiFi(cfg, subArgs[0])
+	default:
+		return fmt.Errorf("unknown wifi subcommand: %s", subcommand)
+	}
 }
