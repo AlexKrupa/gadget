@@ -20,9 +20,9 @@ var CommandRegistry = map[string]CommandExecutor{
 	"screenshot":           executeScreenshot,
 	"screenshot-day-night": executeScreenshotDayNight,
 	"screen-record":        executeScreenRecord,
-	"change-dpi":           executeChangeDPI,
-	"change-font-size":     executeChangeFontSize,
-	"change-screen-size":   executeChangeScreenSize,
+	"dpi":                  executeDPI,
+	"font-size":            executeFontSize,
+	"screen-size":          executeScreenSize,
 	"launch-emulator":      executeLaunchEmulator,
 	"configure-emulator":   executeConfigureEmulator,
 	"pair-wifi":            executePairWiFi,
@@ -52,16 +52,16 @@ func executeScreenRecord(cfg *config.Config, deviceSerial, _, _, _ string) error
 	return ExecuteScreenRecordDirect(cfg, deviceSerial)
 }
 
-func executeChangeDPI(cfg *config.Config, deviceSerial, _, _, value string) error {
-	return ExecuteChangeDPIDirect(cfg, deviceSerial, value)
+func executeDPI(cfg *config.Config, deviceSerial, _, _, value string) error {
+	return ExecuteDPIDirect(cfg, deviceSerial, value)
 }
 
 func executeChangeFontSize(cfg *config.Config, deviceSerial, _, _, value string) error {
-	return ExecuteChangeFontSizeDirect(cfg, deviceSerial, value)
+	return ExecuteFontSizeDirect(cfg, deviceSerial, value)
 }
 
 func executeChangeScreenSize(cfg *config.Config, deviceSerial, _, _, value string) error {
-	return ExecuteChangeScreenSizeDirect(cfg, deviceSerial, value)
+	return ExecuteScreenSizeDirect(cfg, deviceSerial, value)
 }
 
 func executeLaunchEmulator(cfg *config.Config, _, _, _, value string) error {
@@ -190,16 +190,63 @@ func executeSettingChange(cfg *config.Config, deviceSerial, value string, settin
 	return handler.SetValue(cfg, device, value)
 }
 
-func ExecuteChangeDPIDirect(cfg *config.Config, deviceSerial, value string) error {
-	return executeSettingChange(cfg, deviceSerial, value, commands.SettingTypeDPI, "change-dpi", "DPI number", "Changing DPI")
+func ExecuteDPIDirect(cfg *config.Config, deviceSerial, value string) error {
+	return executeSettingCommand(cfg, deviceSerial, value, commands.SettingTypeDPI, "Physical DPI", "Current DPI")
 }
 
-func ExecuteChangeFontSizeDirect(cfg *config.Config, deviceSerial, value string) error {
-	return executeSettingChange(cfg, deviceSerial, value, commands.SettingTypeFontSize, "change-font-size", "font scale number", "Changing font size")
+// executeSettingCommand is a generic function for all setting commands
+func executeSettingCommand(cfg *config.Config, deviceSerial, value string, settingType commands.SettingType, defaultLabel, currentLabel string) error {
+	device, err := selectDevice(cfg, deviceSerial)
+	if err != nil {
+		return err
+	}
+
+	handler := commands.GetSettingHandler(settingType)
+
+	// If no value provided, show current setting info
+	if value == "" {
+		info, err := handler.GetInfo(cfg, device)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s: %s\n", defaultLabel, info.Default)
+		fmt.Printf("%s: %s\n", currentLabel, info.Current)
+		return nil
+	}
+
+	// Validate and set new value
+	if err := handler.ValidateInput(value); err != nil {
+		return err
+	}
+
+	if err := handler.SetValue(cfg, device, value); err != nil {
+		return err
+	}
+
+	// Show setting info after setting
+	info, err := handler.GetInfo(cfg, device)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s: %s\n", defaultLabel, info.Default)
+	fmt.Printf("%s: %s\n", currentLabel, info.Current)
+	return nil
 }
 
-func ExecuteChangeScreenSizeDirect(cfg *config.Config, deviceSerial, value string) error {
-	return executeSettingChange(cfg, deviceSerial, value, commands.SettingTypeScreenSize, "change-screen-size", "WIDTHxHEIGHT", "Changing screen size")
+func executeFontSize(cfg *config.Config, deviceSerial, _, _, value string) error {
+	return ExecuteFontSizeDirect(cfg, deviceSerial, value)
+}
+
+func ExecuteFontSizeDirect(cfg *config.Config, deviceSerial, value string) error {
+	return executeSettingCommand(cfg, deviceSerial, value, commands.SettingTypeFontSize, "Default font size", "Current font size")
+}
+
+func executeScreenSize(cfg *config.Config, deviceSerial, _, _, value string) error {
+	return ExecuteScreenSizeDirect(cfg, deviceSerial, value)
+}
+
+func ExecuteScreenSizeDirect(cfg *config.Config, deviceSerial, value string) error {
+	return executeSettingCommand(cfg, deviceSerial, value, commands.SettingTypeScreenSize, "Physical screen size", "Current screen size")
 }
 
 func ExecuteLaunchEmulatorDirect(cfg *config.Config, avdName string) error {
