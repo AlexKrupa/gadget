@@ -78,54 +78,6 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 	return fmt.Errorf("failed to connect to %s. Device may need pairing first", ipAndPort)
 }
 
-// pairAndConnect performs the WiFi pairing process
-func pairAndConnect(cfg *config.Config, ip string, pairingPort int) error {
-	adbPath := cfg.GetADBPath()
-	pairingAddress := fmt.Sprintf("%s:%d", ip, pairingPort)
-	defaultAddress := fmt.Sprintf("%s:%d", ip, DefaultWiFiPort)
-
-	fmt.Printf("Attempting to pair with %s...\n", pairingAddress)
-
-	// Step 1: Connect to the pairing port
-	err := adb.ExecuteGlobalCommand(adbPath, "connect", pairingAddress)
-	if err != nil {
-		return fmt.Errorf("failed to connect for pairing: %w", err)
-	}
-
-	time.Sleep(1 * time.Second)
-
-	// Step 2: Enable TCP/IP mode on the default port
-	fmt.Printf("Enabling TCP/IP mode on port %d...\n", DefaultWiFiPort)
-	err = adb.ExecuteCommand(adbPath, pairingAddress, "tcpip", strconv.Itoa(DefaultWiFiPort))
-	if err != nil {
-		// Try to disconnect from pairing port before returning error
-		adb.ExecuteGlobalCommand(adbPath, "disconnect", pairingAddress)
-		return fmt.Errorf("failed to enable TCP/IP mode: %w", err)
-	}
-
-	time.Sleep(1 * time.Second)
-
-	// Step 3: Connect to the default port
-	fmt.Printf("Connecting to %s...\n", defaultAddress)
-	err = adb.ExecuteGlobalCommand(adbPath, "connect", defaultAddress)
-	if err != nil {
-		// Try to disconnect from pairing port before returning error
-		adb.ExecuteGlobalCommand(adbPath, "disconnect", pairingAddress)
-		return fmt.Errorf("failed to connect to default port: %w", err)
-	}
-
-	time.Sleep(1 * time.Second)
-
-	// Step 4: Disconnect from the pairing port
-	fmt.Printf("Disconnecting from pairing port...\n")
-	err = adb.ExecuteGlobalCommand(adbPath, "disconnect", pairingAddress)
-	if err != nil {
-		fmt.Printf("Warning: failed to disconnect from pairing port: %v\n", err)
-	}
-
-	fmt.Printf("Successfully paired and connected to %s\n", defaultAddress)
-	return nil
-}
 
 // DisconnectWiFi disconnects from a WiFi device
 func DisconnectWiFi(cfg *config.Config, ipAndPort string) error {

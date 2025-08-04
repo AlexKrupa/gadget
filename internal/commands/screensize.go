@@ -80,14 +80,3 @@ func SetScreenSize(cfg *config.Config, device adb.Device, size string) error {
 	return nil
 }
 
-// ResetScreenSize resets the device screen size to default
-func ResetScreenSize(cfg *config.Config, device adb.Device) error {
-	adbPath := cfg.GetADBPath()
-	err := adb.ExecuteCommand(adbPath, device.Serial, "shell", "wm", "size", "reset")
-	if err != nil {
-		return fmt.Errorf("failed to reset screen size: %w", err)
-	}
-
-	fmt.Printf("Screen size reset to default on device %s\n", device.Serial)
-	return nil
-}

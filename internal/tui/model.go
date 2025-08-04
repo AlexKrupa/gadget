@@ -161,10 +161,6 @@ func (m *Model) addError(message string) {
 	m.addLogEntry(message, LogTypeError)
 }
 
-// addInfo adds an info log entry
-func (m *Model) addInfo(message string) {
-	m.addLogEntry(message, LogTypeInfo)
-}
 
 // clearLogs clears all log entries
 func (m *Model) clearLogs() {

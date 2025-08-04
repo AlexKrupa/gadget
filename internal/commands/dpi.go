@@ -76,14 +76,3 @@ func SetDPI(cfg *config.Config, device adb.Device, dpi int) error {
 	return nil
 }
 
-// ResetDPI resets the device DPI to default
-func ResetDPI(cfg *config.Config, device adb.Device) error {
-	adbPath := cfg.GetADBPath()
-	err := adb.ExecuteCommand(adbPath, device.Serial, "shell", "wm", "density", "reset")
-	if err != nil {
-		return fmt.Errorf("failed to reset DPI: %w", err)
-	}
-
-	fmt.Printf("DPI reset to default on device %s\n", device.Serial)
-	return nil
-}

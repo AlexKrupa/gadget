@@ -74,13 +74,7 @@ func executeDPI(cfg *config.Config, deviceSerial, _, _, value string) error {
 	return ExecuteDPIDirect(cfg, deviceSerial, value)
 }
 
-func executeChangeFontSize(cfg *config.Config, deviceSerial, _, _, value string) error {
-	return ExecuteFontSizeDirect(cfg, deviceSerial, value)
-}
 
-func executeChangeScreenSize(cfg *config.Config, deviceSerial, _, _, value string) error {
-	return ExecuteScreenSizeDirect(cfg, deviceSerial, value)
-}
 
 func executeLaunchEmulator(cfg *config.Config, _, _, _, value string) error {
 	return ExecuteLaunchEmulatorDirect(cfg, value)
@@ -189,24 +183,6 @@ func ExecuteScreenRecordDirect(cfg *config.Config, deviceSerial string) error {
 	return recording.StopAndSave()
 }
 
-func executeSettingChange(cfg *config.Config, deviceSerial, value string, settingType commands.SettingType, commandName, valueDescription, actionDescription string) error {
-	if value == "" {
-		return fmt.Errorf("%s requires -value (%s)", commandName, valueDescription)
-	}
-
-	device, err := selectDevice(cfg, deviceSerial)
-	if err != nil {
-		return err
-	}
-
-	handler := commands.GetSettingHandler(settingType)
-	if err := handler.ValidateInput(value); err != nil {
-		return err
-	}
-
-	fmt.Printf("%s to %s on device: %s\n", actionDescription, value, device.Serial)
-	return handler.SetValue(cfg, device, value)
-}
 
 func ExecuteDPIDirect(cfg *config.Config, deviceSerial, value string) error {
 	return executeSettingCommand(cfg, deviceSerial, value, commands.SettingTypeDPI, "Physical DPI", "Current DPI")

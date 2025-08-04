@@ -38,6 +38,3 @@ func GetCommandCategories() []CommandCategory {
 	return categories
 }
 
-func GetAvailableCommandNames() []string {
-	return registry.GetAvailableCommandNames()
-}

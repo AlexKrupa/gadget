@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"os"
 	"strings"
 )
@@ -20,15 +19,3 @@ func ShortenHomePath(path string) string {
 	return path
 }
 
-// FormatErrorMessage creates a standardized error message format
-func FormatErrorMessage(operation, deviceSerial string, err error) string {
-	return fmt.Sprintf("%s failed on %s: %s", operation, deviceSerial, err.Error())
-}
-
-// FormatSuccessMessage creates a standardized success message format
-func FormatSuccessMessage(operation, deviceSerial, details string) string {
-	if details != "" {
-		return fmt.Sprintf("%s completed on %s\n%s", operation, deviceSerial, details)
-	}
-	return fmt.Sprintf("%s completed on %s", operation, deviceSerial)
-}

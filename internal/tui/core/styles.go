@@ -60,18 +60,3 @@ var (
 			Padding(1, 2, 1, 2)
 )
 
-// FormatLogEntry formats a log entry with appropriate styling
-func FormatLogEntry(entry LogEntry) string {
-	var style lipgloss.Style
-	switch entry.Type {
-	case LogTypeSuccess:
-		style = SuccessStyle
-	case LogTypeError:
-		style = ErrorStyle
-	case LogTypeInfo:
-		style = InfoStyle
-	default:
-		style = NoStyle
-	}
-	return style.Render(entry.Message)
-}

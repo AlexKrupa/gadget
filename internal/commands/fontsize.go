@@ -55,7 +55,3 @@ func SetFontSize(cfg *config.Config, device adb.Device, scale float64) error {
 	return nil
 }
 
-// ResetFontSize resets the device font size to default (1.0)
-func ResetFontSize(cfg *config.Config, device adb.Device) error {
-	return SetFontSize(cfg, device, 1.0)
-}

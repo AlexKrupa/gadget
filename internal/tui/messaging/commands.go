@@ -10,13 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// LoadDevicesCmd returns a command that loads connected devices
-func LoadDevicesCmd(cfg *config.Config) tea.Cmd {
-	return func() tea.Msg {
-		devices, err := adb.GetConnectedDevices(cfg.GetADBPath())
-		return DevicesLoadedMsg{Devices: devices, Err: err}
-	}
-}
 
 // LoadAvdsCmd returns a command that loads available AVDs
 func LoadAvdsCmd(cfg *config.Config) tea.Cmd {

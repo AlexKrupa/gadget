@@ -8,7 +8,6 @@ import (
 	"gadget/internal/tui/features/devices"
 	"gadget/internal/tui/features/media"
 	"gadget/internal/tui/features/settings"
-	"gadget/internal/tui/features/wifi"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,17 +49,6 @@ func changeSetting(cfg *config.Config, device adb.Device, settingType commands.S
 	return settings.ChangeSettingCmd(cfg, device, settingType, value)
 }
 
-func connectWiFi(cfg *config.Config, ipAndPort string) tea.Cmd {
-	return wifi.ConnectWiFiCmd(cfg, ipAndPort)
-}
-
-func disconnectWiFi(cfg *config.Config, ipAndPort string) tea.Cmd {
-	return wifi.DisconnectWiFiCmd(cfg, ipAndPort)
-}
-
-func pairWiFi(cfg *config.Config, ipAndPort, pairingCode string) tea.Cmd {
-	return wifi.PairWiFiCmd(cfg, ipAndPort, pairingCode)
-}
 
 // configureEmulatorCmd opens the AVD configuration file in editor using tea.ExecProcess
 func configureEmulatorCmd(cfg *config.Config, avd emulator.AVD) tea.Cmd {

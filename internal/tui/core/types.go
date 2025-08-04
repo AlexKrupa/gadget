@@ -2,8 +2,6 @@ package core
 
 import (
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Mode represents the current TUI mode
@@ -61,9 +59,3 @@ type BaseModel struct {
 // TickMsg is sent for progress animation
 type TickMsg time.Time
 
-// TickCmd returns a command that sends a tick message
-func TickCmd() tea.Cmd {
-	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
-		return TickMsg(t)
-	})
-}

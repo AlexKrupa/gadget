@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"gadget/internal/display"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -202,30 +200,6 @@ func getAVDDisplayNameForEmulator(serial string) string {
 	return ""
 }
 
-// getDisplayNameFromAVDName gets the display name from AVD config files
-func getDisplayNameFromAVDName(avdName string) string {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-
-	configPath := filepath.Join(homeDir, ".android", "avd", avdName+".avd", "config.ini")
-	file, err := os.Open(configPath)
-	if err != nil {
-		return ""
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "avd.ini.displayname = ") {
-			return strings.TrimPrefix(line, "avd.ini.displayname = ")
-		}
-	}
-
-	return ""
-}
 
 // LoadExtendedInfo populates battery, Android version, screen resolution, CPU architecture, API level, and IP address for the device
 func (d *Device) LoadExtendedInfo(adbPath string) {
