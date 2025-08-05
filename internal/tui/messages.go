@@ -17,3 +17,4 @@ type wifiConnectDoneMsg = messaging.WiFiConnectDoneMsg
 type wifiDisconnectDoneMsg = messaging.WiFiDisconnectDoneMsg
 type wifiPairDoneMsg = messaging.WiFiPairDoneMsg
 type emulatorConfigureDoneMsg = messaging.EmulatorConfigureDoneMsg
+type liveOutputMsg = messaging.LiveOutputMsg

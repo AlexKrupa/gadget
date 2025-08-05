@@ -110,3 +110,35 @@ func TakeDayNightScreenshots(cfg *config.Config, device adb.Device) error {
 
 	return nil
 }
+
+// TUI-friendly functions that don't print to stdout
+
+// SetDarkModeForTUI toggles dark mode without printing output
+func SetDarkModeForTUI(cfg *config.Config, device adb.Device, enabled bool) error {
+	adbPath := cfg.GetADBPath()
+	mode := "no"
+	if enabled {
+		mode = "yes"
+	}
+	return adb.ExecuteCommand(adbPath, device.Serial, "shell", "cmd", "uimode", "night", mode)
+}
+
+// TakeScreenshotForTUI takes a screenshot without printing output
+func TakeScreenshotForTUI(adbPath, serial, remotePath, localPath string) error {
+	err := adb.ExecuteCommand(adbPath, serial, "shell", "screencap", remotePath)
+	if err != nil {
+		return fmt.Errorf("failed to take screenshot: %w", err)
+	}
+
+	err = adb.ExecuteCommand(adbPath, serial, "pull", remotePath, localPath)
+	if err != nil {
+		return fmt.Errorf("failed to pull screenshot: %w", err)
+	}
+
+	return nil
+}
+
+// CleanupRemoteFile removes a file from the device
+func CleanupRemoteFile(adbPath, serial, remotePath string) {
+	adb.ExecuteCommand(adbPath, serial, "shell", "rm", remotePath)
+}

@@ -55,3 +55,8 @@ type WiFiConnectDoneMsg OperationResult
 type WiFiDisconnectDoneMsg OperationResult
 type WiFiPairDoneMsg OperationResult
 type EmulatorConfigureDoneMsg OperationResult
+
+// LiveOutputMsg is sent when command output is captured in real-time
+type LiveOutputMsg struct {
+	Message string
+}

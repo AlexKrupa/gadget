@@ -14,6 +14,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// StreamingDayNightScreenshot represents a request to start streaming day-night screenshots
+type StreamingDayNightScreenshot struct {
+	Config    *config.Config
+	Device    adb.Device
+	Timestamp string
+}
+
 // TakeScreenshotCmd returns a command to take a single screenshot
 func TakeScreenshotCmd(cfg *config.Config, device adb.Device) tea.Cmd {
 	return executeScreenshotOperation(cfg, device, ScreenshotSingle)
@@ -82,33 +89,106 @@ func executeScreenshotOperation(cfg *config.Config, device adb.Device, operation
 			}
 
 		case ScreenshotDayNight:
-			// Changed: Capture command output
-			capturedOutput, err := capture.CaptureCommand(func() error {
-				return commands.TakeDayNightScreenshots(cfg, device)
-			})
-
-			if err != nil {
-				return messaging.DayNightScreenshotDoneMsg{
-					Success:        false,
-					Message:        err.Error(),
-					CapturedOutput: capturedOutput,
-				}
-			}
-
-			filenameDay := fmt.Sprintf("android-img-%s-day.png", timestamp)
-			filenameNight := fmt.Sprintf("android-img-%s-night.png", timestamp)
-			localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
-			localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
-
-			message := fmt.Sprintf("Day-night screenshots captured on %s\nDay:   %s\nNight: %s",
-				device.Serial, core.ShortenHomePath(localPathDay), core.ShortenHomePath(localPathNight))
-			return messaging.DayNightScreenshotDoneMsg{
-				Success:        true,
-				Message:        message,
-				CapturedOutput: capturedOutput,
-			}
+			// Create a simple streaming command using tea.Batch
+			return createStreamingDayNightCommand(cfg, device, timestamp)
 		}
 
 		return nil // Should never reach here
 	}
+}
+
+// StreamingCommandStart signals the start of a streaming command
+type StreamingCommandStart struct {
+	OutputChan <-chan string
+	Config     *config.Config
+	Device     adb.Device
+	Timestamp  string
+}
+
+// createStreamingDayNightCommand creates a command that shows progress as it happens
+func createStreamingDayNightCommand(cfg *config.Config, device adb.Device, timestamp string) tea.Msg {
+	outputChan := make(chan string, 100)
+
+	// Start the command in a goroutine
+	go func() {
+		defer close(outputChan) // Only close outputChan when truly done
+
+		// Use a helper function to send progress updates safely
+		sendProgress := func(message string) {
+			select {
+			case outputChan <- message:
+			default:
+				// Channel full, skip to prevent blocking
+			}
+		}
+
+		// Execute day-night screenshots with live progress
+		err := executeDayNightWithProgress(cfg, device, timestamp, sendProgress)
+		if err != nil {
+			sendProgress(fmt.Sprintf("Command failed: %v", err))
+		}
+		// Channel closes here via defer, signaling completion
+	}()
+
+	return StreamingCommandStart{
+		OutputChan: outputChan,
+		Config:     cfg,
+		Device:     device,
+		Timestamp:  timestamp,
+	}
+}
+
+// executeDayNightWithProgress executes day-night screenshots with progress callbacks
+func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestamp string, progress func(string)) error {
+	filenameDay := fmt.Sprintf("android-img-%s-day.png", timestamp)
+	filenameNight := fmt.Sprintf("android-img-%s-night.png", timestamp)
+	localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
+	localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
+	remotePath := "/sdcard/screenshot.png"
+	adbPath := cfg.GetADBPath()
+
+	progress(fmt.Sprintf("Taking day and night screenshots of %s", device.Serial))
+
+	progress("Setting light mode...")
+	err := commands.SetDarkModeForTUI(cfg, device, false)
+	if err != nil {
+		progress(fmt.Sprintf("Error setting light mode: %v", err))
+		return err
+	}
+	time.Sleep(1 * time.Second) // Reduced from 2s - modern devices update faster
+
+	progress("Taking day screenshot...")
+	err = commands.TakeScreenshotForTUI(adbPath, device.Serial, remotePath, localPathDay)
+	if err != nil {
+		progress(fmt.Sprintf("Error taking day screenshot: %v", err))
+		return err
+	}
+	progress(fmt.Sprintf("Day screenshot saved to: %s", localPathDay))
+
+	progress("Setting dark mode...")
+	err = commands.SetDarkModeForTUI(cfg, device, true)
+	if err != nil {
+		progress(fmt.Sprintf("Error setting dark mode: %v", err))
+		return err
+	}
+	time.Sleep(1 * time.Second) // Reduced from 2s
+
+	progress("Taking night screenshot...")
+	err = commands.TakeScreenshotForTUI(adbPath, device.Serial, remotePath, localPathNight)
+	if err != nil {
+		progress(fmt.Sprintf("Error taking night screenshot: %v", err))
+		return err
+	}
+	progress(fmt.Sprintf("Night screenshot saved to: %s", localPathNight))
+
+	progress("Restoring light mode...")
+	time.Sleep(1 * time.Second) // Reduced from 2s
+	err = commands.SetDarkModeForTUI(cfg, device, false)
+	if err != nil {
+		progress(fmt.Sprintf("Warning: failed to restore light mode: %v", err))
+	}
+
+	commands.CleanupRemoteFile(adbPath, device.Serial, remotePath)
+
+	return nil
 }

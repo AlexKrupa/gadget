@@ -6,11 +6,13 @@ import (
 	"gadget/internal/adb"
 	"gadget/internal/commands"
 	"gadget/internal/config"
+	"gadget/internal/tui/capture"
 	"gadget/internal/tui/core"
 	"gadget/internal/tui/features/devices"
 	"gadget/internal/tui/features/media"
 	"gadget/internal/tui/features/settings"
 	"gadget/internal/tui/features/wifi"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -474,6 +476,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addSuccess(msg.Message)
 		} else {
 			m.addError(msg.Message)
+		}
+		return m, nil
+	case liveOutputMsg:
+		// Changed: Handle live output messages from messaging package
+		m.addInfo(msg.Message)
+		return m, nil
+	case capture.LiveOutputMsg:
+		// Changed: Handle live output messages from capture package
+		m.addInfo(msg.Message)
+		return m, nil
+	case media.StreamingCommandStart:
+		// Changed: Start polling for live output from channels
+		return m, PollChannels(msg.OutputChan, nil, msg.Config, msg.Device, msg.Timestamp)
+	case ChannelPollResult:
+		// Changed: Handle live output from channel polling
+		if msg.LiveOutput != "" {
+			m.addInfo(msg.LiveOutput)
+		}
+		if msg.ShouldPoll {
+			// Continue polling
+			return m, PollChannels(msg.OutputChan, nil, msg.Config, msg.Device, msg.Timestamp)
 		}
 		return m, nil
 	case tea.QuitMsg:
@@ -1340,4 +1363,56 @@ func (m Model) renderProgressIndicators() string {
 	}
 
 	return strings.Join(indicators, "\n")
+}
+
+// PollChannels creates a command that polls output channel for streaming updates
+func PollChannels(outputChan <-chan string, doneChan <-chan bool, cfg *config.Config, device adb.Device, timestamp string) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case line, ok := <-outputChan:
+			if ok && line != "" {
+				// Send this line as live output and continue polling
+				return ChannelPollResult{
+					LiveOutput: line,
+					ShouldPoll: true,
+					OutputChan: outputChan,
+					Config:     cfg,
+					Device:     device,
+					Timestamp:  timestamp,
+				}
+			} else if !ok {
+				// Channel closed - command is done
+				filenameDay := fmt.Sprintf("android-img-%s-day.png", timestamp)
+				filenameNight := fmt.Sprintf("android-img-%s-night.png", timestamp)
+				localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
+				localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
+
+				message := fmt.Sprintf("Day-night screenshots captured on %s\nDay:   %s\nNight: %s",
+					device.Serial, core.ShortenHomePath(localPathDay), core.ShortenHomePath(localPathNight))
+				return dayNightScreenshotDoneMsg{
+					Success:        true,
+					Message:        message,
+					CapturedOutput: []string{}, // We don't collect all output here
+				}
+			}
+			// If ok but line is empty, fall through to continue polling
+		default:
+			// No new data, continue polling with a small delay
+			time.Sleep(50 * time.Millisecond) // Reduced for more responsive logs
+			return PollChannels(outputChan, nil, cfg, device, timestamp)()
+		}
+
+		// Continue polling if we get here (empty line case)
+		return PollChannels(outputChan, nil, cfg, device, timestamp)()
+	}
+}
+
+// ChannelPollResult represents a result from polling channels
+type ChannelPollResult struct {
+	LiveOutput string
+	ShouldPoll bool
+	OutputChan <-chan string
+	Config     *config.Config
+	Device     adb.Device
+	Timestamp  string
 }
