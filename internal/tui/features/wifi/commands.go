@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget/internal/commands"
 	"gadget/internal/config"
+	"gadget/internal/tui/capture"
 	"gadget/internal/tui/messaging"
 	"time"
 
@@ -30,27 +31,35 @@ func executeWiFiOperation(cfg *config.Config, operation WiFiOperation, ipAndPort
 	return func() tea.Msg {
 		var err error
 		var successMsg string
+		var capturedOutput []string
 
+		// Changed: Capture command output for all WiFi operations
 		switch operation {
 		case WiFiConnect:
-			err = commands.ConnectWiFi(cfg, ipAndPort)
+			capturedOutput, err = capture.CaptureCommand(func() error {
+				return commands.ConnectWiFi(cfg, ipAndPort)
+			})
 			successMsg = fmt.Sprintf("WiFi device connected: %s", ipAndPort)
 		case WiFiDisconnect:
-			err = commands.DisconnectWiFi(cfg, ipAndPort)
+			capturedOutput, err = capture.CaptureCommand(func() error {
+				return commands.DisconnectWiFi(cfg, ipAndPort)
+			})
 			successMsg = fmt.Sprintf("WiFi device disconnected: %s", ipAndPort)
 		case WiFiPair:
-			err = commands.PairWiFiDevice(cfg, ipAndPort, pairingCode)
+			capturedOutput, err = capture.CaptureCommand(func() error {
+				return commands.PairWiFiDevice(cfg, ipAndPort, pairingCode)
+			})
 			successMsg = fmt.Sprintf("WiFi device paired and connected: %s", ipAndPort)
 		}
 
 		if err != nil {
 			switch operation {
 			case WiFiConnect:
-				return messaging.WiFiConnectDoneMsg{Success: false, Message: err.Error()}
+				return messaging.WiFiConnectDoneMsg{Success: false, Message: err.Error(), CapturedOutput: capturedOutput}
 			case WiFiDisconnect:
-				return messaging.WiFiDisconnectDoneMsg{Success: false, Message: err.Error()}
+				return messaging.WiFiDisconnectDoneMsg{Success: false, Message: err.Error(), CapturedOutput: capturedOutput}
 			case WiFiPair:
-				return messaging.WiFiPairDoneMsg{Success: false, Message: err.Error()}
+				return messaging.WiFiPairDoneMsg{Success: false, Message: err.Error(), CapturedOutput: capturedOutput}
 			}
 		}
 
@@ -61,11 +70,11 @@ func executeWiFiOperation(cfg *config.Config, operation WiFiOperation, ipAndPort
 
 		switch operation {
 		case WiFiConnect:
-			return messaging.WiFiConnectDoneMsg{Success: true, Message: successMsg}
+			return messaging.WiFiConnectDoneMsg{Success: true, Message: successMsg, CapturedOutput: capturedOutput}
 		case WiFiDisconnect:
-			return messaging.WiFiDisconnectDoneMsg{Success: true, Message: successMsg}
+			return messaging.WiFiDisconnectDoneMsg{Success: true, Message: successMsg, CapturedOutput: capturedOutput}
 		case WiFiPair:
-			return messaging.WiFiPairDoneMsg{Success: true, Message: successMsg}
+			return messaging.WiFiPairDoneMsg{Success: true, Message: successMsg, CapturedOutput: capturedOutput}
 		}
 
 		return nil // Should never reach here

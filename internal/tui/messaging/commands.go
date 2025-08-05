@@ -6,6 +6,7 @@ import (
 	"gadget/internal/commands"
 	"gadget/internal/config"
 	"gadget/internal/emulator"
+	"gadget/internal/tui/capture"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -34,13 +35,17 @@ func ChangeSettingCmd(cfg *config.Config, device adb.Device, settingType command
 
 		if err := handler.ValidateInput(value); err != nil {
 			return SettingChangedMsg{
-				SettingType: settingType,
-				Success:     false,
-				Message:     err.Error(),
+				SettingType:    settingType,
+				Success:        false,
+				Message:        err.Error(),
+				CapturedOutput: nil,
 			}
 		}
 
-		err := handler.SetValue(cfg, device, value)
+		// Changed: Capture command output
+		capturedOutput, err := capture.CaptureCommand(func() error {
+			return handler.SetValue(cfg, device, value)
+		})
 
 		var message string
 		success := err == nil
@@ -52,9 +57,10 @@ func ChangeSettingCmd(cfg *config.Config, device adb.Device, settingType command
 		}
 
 		return SettingChangedMsg{
-			SettingType: settingType,
-			Success:     success,
-			Message:     message,
+			SettingType:    settingType,
+			Success:        success,
+			Message:        message,
+			CapturedOutput: capturedOutput,
 		}
 	}
 }

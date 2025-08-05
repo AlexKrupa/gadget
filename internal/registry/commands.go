@@ -47,32 +47,6 @@ func GetTUICommands() []Command {
 	}
 }
 
-// GetCommandCategories returns CLI commands grouped by category
-func GetCommandCategories() []CommandCategory {
-	commands := GetAvailableCommands()
-	categoryMap := make(map[string][]Command)
-
-	// Group commands by category
-	for _, cmd := range commands {
-		categoryMap[cmd.Category] = append(categoryMap[cmd.Category], cmd)
-	}
-
-	// Return categories in desired order
-	categoryOrder := []string{"Media", "Device settings", "WiFi", "Devices/emulators"}
-	var categories []CommandCategory
-
-	for _, categoryName := range categoryOrder {
-		if cmds, exists := categoryMap[categoryName]; exists {
-			categories = append(categories, CommandCategory{
-				Name:     categoryName,
-				Commands: cmds,
-			})
-		}
-	}
-
-	return categories
-}
-
 // GetTUICommandCategories returns TUI commands grouped by category
 func GetTUICommandCategories() []CommandCategory {
 	commands := GetTUICommands()

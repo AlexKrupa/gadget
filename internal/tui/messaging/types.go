@@ -28,9 +28,10 @@ type SettingLoadedMsg struct {
 
 // SettingChangedMsg is sent when setting change is complete
 type SettingChangedMsg struct {
-	SettingType commands.SettingType
-	Success     bool
-	Message     string
+	SettingType    commands.SettingType
+	Success        bool
+	Message        string
+	CapturedOutput []string // Changed: Added captured command output
 }
 
 // RecordingStartedMsg is sent when screen recording starts successfully
@@ -41,8 +42,9 @@ type RecordingStartedMsg struct {
 
 // Base result message for simple operations
 type OperationResult struct {
-	Success bool
-	Message string
+	Success        bool
+	Message        string
+	CapturedOutput []string // Changed: Added captured command output
 }
 
 // Specific operation result messages

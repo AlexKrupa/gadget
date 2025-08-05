@@ -163,6 +163,20 @@ func (m *Model) addError(message string) {
 	m.addLogEntry(message, LogTypeError)
 }
 
+// addInfo adds an info log entry
+func (m *Model) addInfo(message string) {
+	m.addLogEntry(message, LogTypeInfo)
+}
+
+// processCapturedOutput logs all captured output lines as info entries
+func (m *Model) processCapturedOutput(capturedOutput []string) {
+	for _, line := range capturedOutput {
+		if strings.TrimSpace(line) != "" {
+			m.addInfo(line)
+		}
+	}
+}
+
 // clearLogs clears all log entries
 func (m *Model) clearLogs() {
 	m.logHistory = make([]LogEntry, 0)
@@ -333,6 +347,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case screenshotDoneMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, _, successMsg, errorMsg := m.mediaFeature.HandleScreenshotDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -342,6 +358,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case dayNightScreenshotDoneMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, _, successMsg, errorMsg := m.mediaFeature.HandleDayNightScreenshotDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -357,6 +375,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case screenRecordDoneMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, _, successMsg, errorMsg := m.mediaFeature.HandleScreenRecordDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -399,6 +419,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case settingChangedMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, cmd, successMsg, errorMsg := m.settingsFeature.HandleSettingChanged(msg, m.selectedDeviceForAction)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -409,6 +431,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case wifiConnectDoneMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiConnectDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -420,6 +444,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case wifiDisconnectDoneMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiDisconnectDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -431,6 +457,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case wifiPairDoneMsg:
+		// Changed: Process captured output first, then result
+		m.processCapturedOutput(msg.CapturedOutput)
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiPairDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
