@@ -76,7 +76,7 @@ func executeScreenshotOperation(cfg *config.Config, device adb.Device, operation
 			localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
 			localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
 
-			message := fmt.Sprintf("Day-night screenshots captured on %s\nDay: %s\nNight: %s",
+			message := fmt.Sprintf("Day-night screenshots captured on %s\nDay:   %s\nNight: %s",
 				device.Serial, core.ShortenHomePath(localPathDay), core.ShortenHomePath(localPathNight))
 			return messaging.DayNightScreenshotDoneMsg{Success: true, Message: message}
 		}

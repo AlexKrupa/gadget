@@ -592,7 +592,6 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // executeScreenshot runs the screenshot command
 func (m Model) executeScreenshot(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
-	m.clearLogs()
 	m.mediaFeature.StartScreenshot()
 	m.operationStartTime = time.Now()
 
@@ -602,7 +601,6 @@ func (m Model) executeScreenshot(device adb.Device) (tea.Model, tea.Cmd) {
 // executeDayNightScreenshots runs the day-night screenshot command
 func (m Model) executeDayNightScreenshots(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
-	m.clearLogs()
 	m.mediaFeature.StartDayNightScreenshot()
 	m.operationStartTime = time.Now()
 
@@ -695,7 +693,6 @@ func (m Model) executeCommandForDevice(device adb.Device) (tea.Model, tea.Cmd) {
 // executeScreenRecord runs the screen recording command
 func (m Model) executeScreenRecord(device adb.Device) (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
-	m.clearLogs()
 	m.mediaFeature.StartRecording()
 	m.operationStartTime = time.Now()
 
@@ -762,7 +759,6 @@ func (m Model) executeSettingChange(settingType commands.SettingType) (tea.Model
 // executeWiFiConnect processes WiFi connection
 func (m Model) executeWiFiConnect() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
-	m.clearLogs()
 	m.operationStartTime = time.Now()
 
 	// Save input and clear it
@@ -778,7 +774,6 @@ func (m Model) executeWiFiConnect() (tea.Model, tea.Cmd) {
 // executeWiFiDisconnect processes WiFi disconnection
 func (m Model) executeWiFiDisconnect() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
-	m.clearLogs()
 	m.operationStartTime = time.Now()
 
 	// Save input and clear it
@@ -807,7 +802,6 @@ func (m Model) handlePairingAddressInput() (tea.Model, tea.Cmd) {
 // executeWiFiPair processes the second step of pairing (code input and execution)
 func (m Model) executeWiFiPair() (tea.Model, tea.Cmd) {
 	m.mode = ModeMenu
-	m.clearLogs()
 	m.operationStartTime = time.Now()
 
 	// Save pairing code and clear inputs
@@ -929,10 +923,8 @@ func (m Model) View() string {
 		helpKeys = m.keys.TextInputKeys()
 	case ModeDeviceSelect, ModeEmulatorSelect:
 		// These modes handle their own help display, skip global footer
-		// But still show logs below everything
-		if len(m.logHistory) > 0 {
-			s.WriteString("\n" + m.renderLogHistory())
-		}
+		// But still show persistent log box below everything
+		s.WriteString("\n" + m.renderLogBox())
 		return s.String()
 	default:
 		helpKeys = []key.Binding{m.keys.Quit}
@@ -946,10 +938,8 @@ func (m Model) View() string {
 	footer := m.renderHelp(helpKeys)
 	s.WriteString("\n\n" + footer)
 
-	// Log history display at bottom (persistent across all screens)
-	if len(m.logHistory) > 0 {
-		s.WriteString("\n\n" + m.renderLogHistory())
-	}
+	// Persistent log box at bottom (always visible across all screens)
+	s.WriteString("\n\n" + m.renderLogBox())
 
 	return s.String()
 }
@@ -1222,49 +1212,54 @@ func (m Model) renderHelp(keys []key.Binding) string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(helpView)
 }
 
-// renderLogHistory renders the log history with proper formatting and styling
-func (m Model) renderLogHistory() string {
-	if len(m.logHistory) == 0 {
-		return ""
-	}
-
+// renderLogBox renders the persistent log box that's always visible, even when empty
+func (m Model) renderLogBox() string {
 	var logLines []string
 
-	for _, entry := range m.logHistory {
-		var style lipgloss.Style
-		var prefix string
+	if len(m.logHistory) == 0 {
+		// Show empty state message
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Italic(true)
+		logLines = append(logLines, emptyStyle.Render("No recent activity..."))
+	} else {
+		// Render existing log entries
+		for _, entry := range m.logHistory {
+			var style lipgloss.Style
+			var prefix string
 
-		switch entry.Type {
-		case LogTypeSuccess:
-			style = core.SuccessStyle
-			prefix = "✓"
-		case LogTypeError:
-			style = core.ErrorStyle
-			prefix = "✗"
-		case LogTypeInfo:
-			style = core.InfoStyle
-			prefix = "•"
-		}
+			switch entry.Type {
+			case LogTypeSuccess:
+				style = core.SuccessStyle
+				prefix = "✓"
+			case LogTypeError:
+				style = core.ErrorStyle
+				prefix = "✗"
+			case LogTypeInfo:
+				style = core.InfoStyle
+				prefix = "•"
+			}
 
-		// Format timestamp (show only time for recent entries)
-		timeStr := entry.Timestamp.Format("15:04:05")
+			// Format timestamp (show only time for recent entries)
+			timeStr := entry.Timestamp.Format("15:04:05")
 
-		// Handle multi-line messages by indenting continuation lines
-		lines := strings.Split(entry.Message, "\n")
-		for i, line := range lines {
-			if i == 0 {
-				// First line with timestamp and prefix
-				formattedLine := fmt.Sprintf("[%s] %s %s", timeStr, prefix, strings.TrimSpace(line))
-				logLines = append(logLines, style.Render(formattedLine))
-			} else if strings.TrimSpace(line) != "" {
-				// Continuation lines with single space indentation
-				indentedLine := fmt.Sprintf(" %s", strings.TrimSpace(line))
-				logLines = append(logLines, style.Render(indentedLine))
+			// Handle multi-line messages by indenting continuation lines
+			lines := strings.Split(entry.Message, "\n")
+			for i, line := range lines {
+				if i == 0 {
+					// First line with timestamp and prefix
+					formattedLine := fmt.Sprintf("[%s] %s %s", timeStr, prefix, strings.TrimSpace(line))
+					logLines = append(logLines, style.Render(formattedLine))
+				} else if strings.TrimSpace(line) != "" {
+					// Continuation lines with single space indentation
+					indentedLine := fmt.Sprintf(" %s", strings.TrimSpace(line))
+					logLines = append(logLines, style.Render(indentedLine))
+				}
 			}
 		}
 	}
 
-	// Join all lines and add some spacing
+	// Always render the log box with consistent styling
 	logStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("238")).
