@@ -680,11 +680,11 @@ func (m Model) executeCommandForDevice(device adb.Device) (tea.Model, tea.Cmd) {
 		return m.executeDayNightScreenshots(device)
 	case "screen-record":
 		return m.executeScreenRecord(device)
-	case "change-dpi":
+	case "dpi":
 		return m.startSettingChange(device, commands.SettingTypeDPI)
-	case "change-font-size":
+	case "font-size":
 		return m.startSettingChange(device, commands.SettingTypeFontSize)
-	case "change-screen-size":
+	case "screen-size":
 		return m.startSettingChange(device, commands.SettingTypeScreenSize)
 	default:
 		// Fallback to screenshot
@@ -920,11 +920,6 @@ func (m Model) View() string {
 		s.WriteString("\n" + progressIndicators + "\n")
 	}
 
-	// Log history display at bottom (only for main menu)
-	if len(m.logHistory) > 0 && m.mode == ModeMenu {
-		s.WriteString("\n" + m.renderLogHistory() + "\n")
-	}
-
 	// Footer with help (only for modes that don't handle their own help)
 	var helpKeys []key.Binding
 	switch m.mode {
@@ -934,6 +929,10 @@ func (m Model) View() string {
 		helpKeys = m.keys.TextInputKeys()
 	case ModeDeviceSelect, ModeEmulatorSelect:
 		// These modes handle their own help display, skip global footer
+		// But still show logs below everything
+		if len(m.logHistory) > 0 {
+			s.WriteString("\n" + m.renderLogHistory())
+		}
 		return s.String()
 	default:
 		helpKeys = []key.Binding{m.keys.Quit}
@@ -946,6 +945,11 @@ func (m Model) View() string {
 
 	footer := m.renderHelp(helpKeys)
 	s.WriteString("\n\n" + footer)
+
+	// Log history display at bottom (persistent across all screens)
+	if len(m.logHistory) > 0 {
+		s.WriteString("\n\n" + m.renderLogHistory())
+	}
 
 	return s.String()
 }
@@ -1071,11 +1075,7 @@ func (m Model) renderTextInput() string {
 	s = append(s, m.textInput.View())
 
 	// Help is handled by global footer, don't duplicate it here
-
-	// Show log history at bottom if available
-	if len(m.logHistory) > 0 {
-		s = append(s, "", m.renderLogHistory())
-	}
+	// Log history is now handled globally at the bottom
 
 	return strings.Join(s, "\n")
 }

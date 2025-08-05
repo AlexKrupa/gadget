@@ -2,9 +2,9 @@ package core
 
 import "gadget/internal/registry"
 
-// Delegate to registry package for command definitions
+// Delegate to registry package for TUI command definitions
 func GetAvailableCommands() []Command {
-	registryCommands := registry.GetAvailableCommands()
+	registryCommands := registry.GetTUICommands()
 	commands := make([]Command, len(registryCommands))
 	for i, cmd := range registryCommands {
 		commands[i] = Command{
@@ -18,7 +18,7 @@ func GetAvailableCommands() []Command {
 }
 
 func GetCommandCategories() []CommandCategory {
-	registryCategories := registry.GetCommandCategories()
+	registryCategories := registry.GetTUICommandCategories()
 	categories := make([]CommandCategory, len(registryCategories))
 	for i, cat := range registryCategories {
 		commands := make([]Command, len(cat.Commands))
