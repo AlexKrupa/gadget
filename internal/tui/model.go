@@ -487,15 +487,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.addInfo(msg.Message)
 		return m, nil
 	case media.StreamingCommandStart:
-		// Changed: Start polling for live output from channels
+		// Handle day-night streaming command
 		return m, PollChannels(msg.OutputChan, nil, msg.Config, msg.Device, msg.Timestamp)
-	case ChannelPollResult:
-		// Changed: Handle live output from channel polling
+	case media.GenericStreamingStart:
+		// Handle any generic streaming command
+		return m, PollGenericChannels(msg.OutputChan)
+	case GenericChannelPollResult:
+		// Handle live output from generic channel polling
 		if msg.LiveOutput != "" {
 			m.addInfo(msg.LiveOutput)
 		}
 		if msg.ShouldPoll {
 			// Continue polling
+			return m, PollGenericChannels(msg.OutputChan)
+		}
+		return m, nil
+	case ChannelPollResult:
+		// Handle live output from day-night streaming
+		if msg.LiveOutput != "" {
+			m.addInfo(msg.LiveOutput)
+		}
+		if msg.ShouldPoll {
 			return m, PollChannels(msg.OutputChan, nil, msg.Config, msg.Device, msg.Timestamp)
 		}
 		return m, nil
@@ -1407,7 +1419,42 @@ func PollChannels(outputChan <-chan string, doneChan <-chan bool, cfg *config.Co
 	}
 }
 
-// ChannelPollResult represents a result from polling channels
+
+// PollGenericChannels creates a simple command that polls any output channel 
+func PollGenericChannels(outputChan <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case line, ok := <-outputChan:
+			if ok && line != "" {
+				// Send this line as live output and continue polling
+				return GenericChannelPollResult{
+					LiveOutput: line,
+					ShouldPoll: true,
+					OutputChan: outputChan,
+				}
+			} else if !ok {
+				// Channel closed - command is done
+				return nil // No completion message needed for generic commands
+			}
+		default:
+			// No new data, continue polling
+			time.Sleep(50 * time.Millisecond)
+			return PollGenericChannels(outputChan)()
+		}
+
+		// Continue polling if we get here (empty line case)
+		return PollGenericChannels(outputChan)()
+	}
+}
+
+// GenericChannelPollResult represents a result from polling generic channels
+type GenericChannelPollResult struct {
+	LiveOutput string
+	ShouldPoll bool
+	OutputChan <-chan string
+}
+
+// ChannelPollResult represents a result from polling day-night channels
 type ChannelPollResult struct {
 	LiveOutput string
 	ShouldPoll bool
@@ -1416,3 +1463,13 @@ type ChannelPollResult struct {
 	Device     adb.Device
 	Timestamp  string
 }
+
+// WiFiChannelPollResult represents a result from polling WiFi channels
+type WiFiChannelPollResult struct {
+	LiveOutput string
+	ShouldPoll bool
+	OutputChan <-chan string
+	Operation  string
+	Target     string
+}
+

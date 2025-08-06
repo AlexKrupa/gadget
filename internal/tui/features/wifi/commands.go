@@ -5,6 +5,7 @@ import (
 	"gadget/internal/commands"
 	"gadget/internal/config"
 	"gadget/internal/tui/capture"
+	"gadget/internal/tui/features/media"
 	"gadget/internal/tui/messaging"
 	"time"
 
@@ -13,18 +14,25 @@ import (
 
 // ConnectWiFiCmd returns a command to connect to a WiFi device
 func ConnectWiFiCmd(cfg *config.Config, ipAndPort string) tea.Cmd {
-	return executeWiFiOperation(cfg, WiFiConnect, ipAndPort, "")
+	return media.StreamCommand(func() error {
+		return commands.ConnectWiFi(cfg, ipAndPort)
+	})
 }
 
 // DisconnectWiFiCmd returns a command to disconnect from a WiFi device
 func DisconnectWiFiCmd(cfg *config.Config, ipAndPort string) tea.Cmd {
-	return executeWiFiOperation(cfg, WiFiDisconnect, ipAndPort, "")
+	return media.StreamCommand(func() error {
+		return commands.DisconnectWiFi(cfg, ipAndPort)
+	})
 }
 
 // PairWiFiCmd returns a command to pair with a WiFi device
 func PairWiFiCmd(cfg *config.Config, ipAndPort, pairingCode string) tea.Cmd {
-	return executeWiFiOperation(cfg, WiFiPair, ipAndPort, pairingCode)
+	return media.StreamCommand(func() error {
+		return commands.PairWiFiDevice(cfg, ipAndPort, pairingCode)
+	})
 }
+
 
 // executeWiFiOperation executes a WiFi operation asynchronously with generic handling
 func executeWiFiOperation(cfg *config.Config, operation WiFiOperation, ipAndPort, pairingCode string) tea.Cmd {

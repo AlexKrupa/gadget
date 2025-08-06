@@ -23,7 +23,9 @@ type StreamingDayNightScreenshot struct {
 
 // TakeScreenshotCmd returns a command to take a single screenshot
 func TakeScreenshotCmd(cfg *config.Config, device adb.Device) tea.Cmd {
-	return executeScreenshotOperation(cfg, device, ScreenshotSingle)
+	return StreamCommand(func() error {
+		return commands.TakeScreenshot(cfg, device)
+	})
 }
 
 // TakeDayNightScreenshotsCmd returns a command to take day-night screenshots
@@ -39,7 +41,6 @@ func StartScreenRecordCmd(cfg *config.Config, device adb.Device) tea.Cmd {
 // StopAndSaveRecordingCmd returns a command to stop and save screen recording
 func StopAndSaveRecordingCmd(recording *commands.ScreenRecording) tea.Cmd {
 	return func() tea.Msg {
-		// Changed: Capture command output
 		capturedOutput, err := capture.CaptureCommand(func() error {
 			return recording.StopAndSave()
 		})
@@ -66,30 +67,13 @@ func executeScreenshotOperation(cfg *config.Config, device adb.Device, operation
 
 		switch operation {
 		case ScreenshotSingle:
-			// Changed: Capture command output
-			capturedOutput, err := capture.CaptureCommand(func() error {
+			// Use generic streaming for single screenshots
+			return StreamCommand(func() error {
 				return commands.TakeScreenshot(cfg, device)
-			})
-
-			if err != nil {
-				return messaging.ScreenshotDoneMsg{
-					Success:        false,
-					Message:        fmt.Sprintf("Screenshot failed on %s: %s", device.Serial, err.Error()),
-					CapturedOutput: capturedOutput,
-				}
-			}
-
-			filename := fmt.Sprintf("android-img-%s.png", timestamp)
-			localPath := filepath.Join(cfg.MediaPath, filename)
-			message := fmt.Sprintf("Screenshot captured on %s\n%s", device.Serial, core.ShortenHomePath(localPath))
-			return messaging.ScreenshotDoneMsg{
-				Success:        true,
-				Message:        message,
-				CapturedOutput: capturedOutput,
-			}
+			})()
 
 		case ScreenshotDayNight:
-			// Create a simple streaming command using tea.Batch
+			// Use live streaming for day-night (needs progress updates)
 			return createStreamingDayNightCommand(cfg, device, timestamp)
 		}
 
@@ -109,11 +93,9 @@ type StreamingCommandStart struct {
 func createStreamingDayNightCommand(cfg *config.Config, device adb.Device, timestamp string) tea.Msg {
 	outputChan := make(chan string, 100)
 
-	// Start the command in a goroutine
 	go func() {
-		defer close(outputChan) // Only close outputChan when truly done
+		defer close(outputChan)
 
-		// Use a helper function to send progress updates safely
 		sendProgress := func(message string) {
 			select {
 			case outputChan <- message:
@@ -122,12 +104,10 @@ func createStreamingDayNightCommand(cfg *config.Config, device adb.Device, times
 			}
 		}
 
-		// Execute day-night screenshots with live progress
 		err := executeDayNightWithProgress(cfg, device, timestamp, sendProgress)
 		if err != nil {
 			sendProgress(fmt.Sprintf("Command failed: %v", err))
 		}
-		// Channel closes here via defer, signaling completion
 	}()
 
 	return StreamingCommandStart{
@@ -136,6 +116,48 @@ func createStreamingDayNightCommand(cfg *config.Config, device adb.Device, times
 		Device:     device,
 		Timestamp:  timestamp,
 	}
+}
+
+
+
+// StreamCommand wraps any existing command function to make it stream output to logs
+func StreamCommand(commandFunc func() error) tea.Cmd {
+	return func() tea.Msg {
+		outputChan := make(chan string, 100)
+
+		go func() {
+			defer close(outputChan)
+
+			// Capture the command's output and stream it line by line
+			capturedOutput, err := capture.CaptureCommand(commandFunc)
+			
+			// Send each captured line immediately
+			for _, line := range capturedOutput {
+				select {
+				case outputChan <- line:
+				default:
+					// Channel full, skip to prevent blocking
+				}
+			}
+
+			// Send error if command failed
+			if err != nil {
+				select {
+				case outputChan <- fmt.Sprintf("Command failed: %v", err):
+				default:
+				}
+			}
+		}()
+
+		return GenericStreamingStart{
+			OutputChan: outputChan,
+		}
+	}
+}
+
+// GenericStreamingStart signals the start of any streaming command
+type GenericStreamingStart struct {
+	OutputChan <-chan string
 }
 
 // executeDayNightWithProgress executes day-night screenshots with progress callbacks
@@ -155,7 +177,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 		progress(fmt.Sprintf("Error setting light mode: %v", err))
 		return err
 	}
-	time.Sleep(1 * time.Second) // Reduced from 2s - modern devices update faster
+	time.Sleep(1 * time.Second)
 
 	progress("Taking day screenshot...")
 	err = commands.TakeScreenshotForTUI(adbPath, device.Serial, remotePath, localPathDay)
@@ -171,7 +193,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 		progress(fmt.Sprintf("Error setting dark mode: %v", err))
 		return err
 	}
-	time.Sleep(1 * time.Second) // Reduced from 2s
+	time.Sleep(1 * time.Second)
 
 	progress("Taking night screenshot...")
 	err = commands.TakeScreenshotForTUI(adbPath, device.Serial, remotePath, localPathNight)
@@ -182,13 +204,13 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	progress(fmt.Sprintf("Night screenshot saved to: %s", localPathNight))
 
 	progress("Restoring light mode...")
-	time.Sleep(1 * time.Second) // Reduced from 2s
+	time.Sleep(1 * time.Second)
 	err = commands.SetDarkModeForTUI(cfg, device, false)
 	if err != nil {
 		progress(fmt.Sprintf("Warning: failed to restore light mode: %v", err))
 	}
 
 	commands.CleanupRemoteFile(adbPath, device.Serial, remotePath)
-
 	return nil
 }
+
