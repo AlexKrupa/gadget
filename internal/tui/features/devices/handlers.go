@@ -47,6 +47,6 @@ func (d *DevicesFeature) LaunchSelectedEmulator() (tea.Model, tea.Cmd, string, s
 	}
 
 	successMsg := fmt.Sprintf("Launched emulator: %s (may take a moment to appear)", selectedAvd.Name)
-	// Return command to refresh device list after launching emulator
-	return nil, LoadDevicesCmd(d.config), successMsg, ""
+	// Return command to refresh device list after launching emulator and schedule delayed refresh
+	return nil, tea.Batch(LoadDevicesCmd(d.config), ScheduleEmulatorRefreshCmd()), successMsg, ""
 }

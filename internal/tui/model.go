@@ -13,6 +13,7 @@ import (
 	"gadget/internal/tui/features/media"
 	"gadget/internal/tui/features/settings"
 	"gadget/internal/tui/features/wifi"
+	"gadget/internal/tui/messaging"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -85,6 +86,10 @@ type Model struct {
 	searchMode           bool
 
 	operationStartTime time.Time
+
+	// Device tracking
+	deviceTrackingActive bool
+	deviceEventChan      <-chan adb.DeviceChangeEvent
 
 	keys      KeyMap
 	help      help.Model
@@ -329,7 +334,13 @@ func (m Model) fuzzyMatchStringScore(str, filter string) int {
 
 // Init initializes the model (required by Bubble Tea)
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(loadDevices(m.config), m.spinner.Tick, m.listenForLogs())
+	return tea.Batch(
+		loadDevices(m.config),
+		m.spinner.Tick,
+		m.listenForLogs(),
+		devices.StartDeviceTrackingCmd(m.config),
+		devices.StartPeriodicRefreshCmd(),
+	)
 }
 
 // LoggerMsg represents a message from the unified logger
@@ -570,6 +581,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// WiFi and other operations don't have progress indicators that need clearing
 		return m, nil
+	case messaging.DeviceRefreshMsg:
+		// Handle device refresh requests from various sources
+		return m, devices.LoadDevicesCmd(m.config)
+	case devices.DeviceTrackingStartedMsg:
+		// Device tracking started successfully, store channel and start listening
+		m.deviceTrackingActive = true
+		m.deviceEventChan = msg.EventChan
+		return m, devices.WaitForDeviceChangeCmd(m.deviceEventChan)
 	case ChannelPollResult:
 		// Handle live output from day-night streaming
 		if msg.LiveOutput != "" {

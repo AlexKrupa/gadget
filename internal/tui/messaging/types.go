@@ -60,3 +60,8 @@ type EmulatorConfigureDoneMsg OperationResult
 type LiveOutputMsg struct {
 	Message string
 }
+
+// DeviceRefreshMsg is sent to trigger a device list refresh
+type DeviceRefreshMsg struct {
+	Reason string // "tracking", "periodic", "emulator-launch", etc.
+}
