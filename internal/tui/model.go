@@ -71,6 +71,13 @@ type Model struct {
 	loading       bool
 	logChannel    chan logger.TUILogEntry // Channel for receiving logger messages
 
+	// Window dimensions for responsive layout
+	terminalWidth  int
+	terminalHeight int
+
+	// Log box layout configuration
+	logBoxLayout LogBoxLayout
+
 	devicesFeature          *devices.DevicesFeature
 	mediaFeature            *media.MediaFeature
 	wifiFeature             *wifi.WiFiFeature
@@ -111,13 +118,16 @@ func NewModel(cfg *config.Config) Model {
 		selectedCommandIndex: 0,
 		searchMode:           false,
 		logHistory:           make([]LogEntry, 0),
-		maxLogEntries:        20, // Keep last 20 log entries
+		maxLogEntries:        NewLogBoxLayout().MaxLogEntries,
 		operationStartTime:   time.Now(),
 		logChannel:           logChannel,
 		devicesFeature:       devices.NewDevicesFeature(cfg),
 		mediaFeature:         media.NewMediaFeature(cfg),
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
 		settingsFeature:      settings.NewSettingsFeature(cfg),
+		terminalWidth:        80,                // Default width, will be updated by WindowSizeMsg
+		terminalHeight:       24,                // Default height, will be updated by WindowSizeMsg
+		logBoxLayout:         NewLogBoxLayout(), // Initialize log box layout
 	}
 
 	// Set up TUI renderer for unified logging
@@ -597,6 +607,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.ShouldPoll {
 			return m, PollChannels(msg.OutputChan, nil, msg.Config, msg.Device, msg.Timestamp)
 		}
+		return m, nil
+	case tea.WindowSizeMsg:
+		m.terminalWidth = msg.Width
+		m.terminalHeight = msg.Height
 		return m, nil
 	case tea.QuitMsg:
 		m.quitting = true
@@ -1363,6 +1377,110 @@ func (m Model) renderHelp(keys []key.Binding) string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(helpView)
 }
 
+// LogBoxLayout encapsulates all log box sizing and formatting constants
+type LogBoxLayout struct {
+	// External spacing
+	LeftMargin  int
+	RightMargin int
+
+	// Box styling dimensions
+	BorderWidth  int // left + right border
+	PaddingWidth int // left + right padding
+
+	// Content formatting
+	PrefixWidth        int    // "[HH:MM:SS] • " prefix total width
+	ContinuationIndent int    // spaces for wrapped lines
+	TimeFormat         string // timestamp format
+	MaxLogEntries      int    // maximum log entries to keep
+
+	// Minimum constraints
+	MinBoxWidth     int
+	MinContentWidth int
+}
+
+// NewLogBoxLayout creates default log box layout configuration
+func NewLogBoxLayout() LogBoxLayout {
+	return LogBoxLayout{
+		// External spacing
+		LeftMargin:  0,
+		RightMargin: 2,
+
+		// Box styling
+		BorderWidth:  2, // 1 char on each side
+		PaddingWidth: 2, // 1 char on each side
+
+		// Content formatting
+		PrefixWidth:        13,         // "[15:04:05] • " = 13 characters
+		ContinuationIndent: 13,         // align continuation lines with content start
+		TimeFormat:         "15:04:05", // HH:MM:SS format
+		MaxLogEntries:      20,         // keep last 20 entries
+
+		// Constraints
+		MinBoxWidth:     20,
+		MinContentWidth: 10,
+	}
+}
+
+// CalculateBoxWidth returns the total box width for given terminal width
+func (l LogBoxLayout) CalculateBoxWidth(terminalWidth int) int {
+	boxWidth := terminalWidth - l.LeftMargin - l.RightMargin
+	if boxWidth < l.MinBoxWidth {
+		boxWidth = l.MinBoxWidth
+	}
+	return boxWidth
+}
+
+// CalculateContentWidth returns available width for text content
+func (l LogBoxLayout) CalculateContentWidth(terminalWidth int) int {
+	boxWidth := l.CalculateBoxWidth(terminalWidth)
+	contentWidth := boxWidth - l.BorderWidth - l.PaddingWidth - l.PrefixWidth
+	if contentWidth < l.MinContentWidth {
+		contentWidth = l.MinContentWidth
+	}
+	return contentWidth
+}
+
+// GetContinuationIndent returns the indent string for continuation lines
+func (l LogBoxLayout) GetContinuationIndent() string {
+	return strings.Repeat(" ", l.ContinuationIndent)
+}
+
+// FormatTimestamp formats a timestamp using the layout's time format
+func (l LogBoxLayout) FormatTimestamp(t time.Time) string {
+	return t.Format(l.TimeFormat)
+}
+
+// wrapTextAtWords wraps text at maxWidth characters, breaking only at whitespace
+func wrapTextAtWords(text string, maxWidth int) []string {
+	if len(text) <= maxWidth {
+		return []string{text}
+	}
+
+	var lines []string
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{text}
+	}
+
+	currentLine := words[0]
+	for i := 1; i < len(words); i++ {
+		word := words[i]
+		// Check if adding this word would exceed maxWidth
+		if len(currentLine)+1+len(word) > maxWidth {
+			lines = append(lines, currentLine)
+			currentLine = word
+		} else {
+			currentLine += " " + word
+		}
+	}
+	// Add the last line
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return lines
+}
+
 // renderLogBox renders the persistent log box that's always visible, even when empty
 func (m Model) renderLogBox() string {
 	var logLines []string
@@ -1391,35 +1509,50 @@ func (m Model) renderLogBox() string {
 				prefix = "•"
 			}
 
-			// Format timestamp (show only time for recent entries)
-			timeStr := entry.Timestamp.Format("15:04:05")
+			// Format timestamp using layout configuration
+			timeStr := m.logBoxLayout.FormatTimestamp(entry.Timestamp)
 
-			// Handle multi-line messages by aligning continuation lines
-			lines := strings.Split(entry.Message, "\n")
-			// Calculate indentation to align with content after timestamp and prefix
-			// Format: "[15:04:05] • " = 13 characters total
-			indent := strings.Repeat(" ", 13)
+			// Format the entire log entry text first, then apply styling
+			availableWidth := m.logBoxLayout.CalculateContentWidth(m.terminalWidth)
 
-			for i, line := range lines {
-				if i == 0 {
-					// First line with timestamp and prefix
-					formattedLine := fmt.Sprintf("[%s] %s %s", timeStr, prefix, strings.TrimSpace(line))
-					logLines = append(logLines, style.Render(formattedLine))
-				} else if strings.TrimSpace(line) != "" {
-					// Continuation lines aligned with first line content
-					indentedLine := fmt.Sprintf("%s%s", indent, strings.TrimSpace(line))
-					logLines = append(logLines, style.Render(indentedLine))
+			// Format the complete message with proper alignment
+			fullMessage := entry.Message
+			allLines := strings.Split(fullMessage, "\n")
+			var entryLines []string
+			continuationIndent := m.logBoxLayout.GetContinuationIndent()
+
+			for lineIdx, line := range allLines {
+				wrappedLines := wrapTextAtWords(strings.TrimSpace(line), availableWidth)
+
+				for wrapIdx, wrappedLine := range wrappedLines {
+					if lineIdx == 0 && wrapIdx == 0 {
+						// First line gets the timestamp and prefix
+						formattedLine := fmt.Sprintf("[%s] %s %s", timeStr, prefix, wrappedLine)
+						entryLines = append(entryLines, formattedLine)
+					} else if wrappedLine != "" {
+						// Continuation lines use layout-defined indentation
+						continuationLine := fmt.Sprintf("%s%s", continuationIndent, wrappedLine)
+						entryLines = append(entryLines, continuationLine)
+					}
 				}
 			}
+
+			// Join all lines for this entry and apply styling once
+			completeEntry := strings.Join(entryLines, "\n")
+			logLines = append(logLines, style.Render(completeEntry))
 		}
 	}
 
-	// Always render the log box with consistent styling
+	// Always render the log box with consistent styling using layout configuration
+	boxWidth := m.logBoxLayout.CalculateBoxWidth(m.terminalWidth)
+
 	logStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("238")).
-		Padding(0, 1).
-		Margin(0, 0)
+		Padding(0, m.logBoxLayout.PaddingWidth/2). // Horizontal padding
+		MarginLeft(m.logBoxLayout.LeftMargin).     // Left external margin
+		MarginRight(m.logBoxLayout.RightMargin).   // Right external margin
+		Width(boxWidth)
 
 	return logStyle.Render(strings.Join(logLines, "\n"))
 }
