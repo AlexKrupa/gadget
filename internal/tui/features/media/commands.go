@@ -14,6 +14,21 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// takeScreenshotSilent takes a screenshot without printing output
+func takeScreenshotSilent(adbPath, serial, remotePath, localPath string) error {
+	err := adb.ExecuteCommand(adbPath, serial, "shell", "screencap", remotePath)
+	if err != nil {
+		return fmt.Errorf("failed to take screenshot: %w", err)
+	}
+
+	err = adb.ExecuteCommand(adbPath, serial, "pull", remotePath, localPath)
+	if err != nil {
+		return fmt.Errorf("failed to pull screenshot: %w", err)
+	}
+
+	return nil
+}
+
 // StreamingDayNightScreenshot represents a request to start streaming day-night screenshots
 type StreamingDayNightScreenshot struct {
 	Config    *config.Config
@@ -118,8 +133,6 @@ func createStreamingDayNightCommand(cfg *config.Config, device adb.Device, times
 	}
 }
 
-
-
 // StreamCommand wraps any existing command function to make it stream output to logs
 func StreamCommand(commandFunc func() error) tea.Cmd {
 	return func() tea.Msg {
@@ -130,7 +143,7 @@ func StreamCommand(commandFunc func() error) tea.Cmd {
 
 			// Capture the command's output and stream it line by line
 			capturedOutput, err := capture.CaptureCommand(commandFunc)
-			
+
 			// Send each captured line immediately
 			for _, line := range capturedOutput {
 				select {
@@ -172,7 +185,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	progress(fmt.Sprintf("Taking day and night screenshots of %s", device.Serial))
 
 	progress("Setting light mode...")
-	err := commands.SetDarkModeForTUI(cfg, device, false)
+	err := commands.SetDarkMode(cfg, device, false)
 	if err != nil {
 		progress(fmt.Sprintf("Error setting light mode: %v", err))
 		return err
@@ -180,7 +193,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	time.Sleep(1 * time.Second)
 
 	progress("Taking day screenshot...")
-	err = commands.TakeScreenshotForTUI(adbPath, device.Serial, remotePath, localPathDay)
+	err = takeScreenshotSilent(adbPath, device.Serial, remotePath, localPathDay)
 	if err != nil {
 		progress(fmt.Sprintf("Error taking day screenshot: %v", err))
 		return err
@@ -188,7 +201,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	progress(fmt.Sprintf("Day screenshot saved to: %s", localPathDay))
 
 	progress("Setting dark mode...")
-	err = commands.SetDarkModeForTUI(cfg, device, true)
+	err = commands.SetDarkMode(cfg, device, true)
 	if err != nil {
 		progress(fmt.Sprintf("Error setting dark mode: %v", err))
 		return err
@@ -196,7 +209,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	time.Sleep(1 * time.Second)
 
 	progress("Taking night screenshot...")
-	err = commands.TakeScreenshotForTUI(adbPath, device.Serial, remotePath, localPathNight)
+	err = takeScreenshotSilent(adbPath, device.Serial, remotePath, localPathNight)
 	if err != nil {
 		progress(fmt.Sprintf("Error taking night screenshot: %v", err))
 		return err
@@ -205,7 +218,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 
 	progress("Restoring light mode...")
 	time.Sleep(1 * time.Second)
-	err = commands.SetDarkModeForTUI(cfg, device, false)
+	err = commands.SetDarkMode(cfg, device, false)
 	if err != nil {
 		progress(fmt.Sprintf("Warning: failed to restore light mode: %v", err))
 	}
@@ -213,4 +226,3 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	commands.CleanupRemoteFile(adbPath, device.Serial, remotePath)
 	return nil
 }
-

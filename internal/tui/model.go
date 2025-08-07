@@ -1419,8 +1419,7 @@ func PollChannels(outputChan <-chan string, doneChan <-chan bool, cfg *config.Co
 	}
 }
 
-
-// PollGenericChannels creates a simple command that polls any output channel 
+// PollGenericChannels creates a simple command that polls any output channel
 func PollGenericChannels(outputChan <-chan string) tea.Cmd {
 	return func() tea.Msg {
 		select {
@@ -1472,4 +1471,3 @@ type WiFiChannelPollResult struct {
 	Operation  string
 	Target     string
 }
-

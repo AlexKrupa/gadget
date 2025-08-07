@@ -8,15 +8,26 @@ import (
 	"time"
 )
 
-// TakeScreenshot captures a screenshot from the specified device
 func TakeScreenshot(cfg *config.Config, device adb.Device) error {
+	return takeScreenshot(cfg, device, "", false)
+}
+
+func TakeScreenshotSilent(cfg *config.Config, device adb.Device) error {
+	return takeScreenshot(cfg, device, "", true)
+}
+
+func takeScreenshot(cfg *config.Config, device adb.Device, suffix string, silent bool) error {
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	filename := fmt.Sprintf("android-img-%s.png", timestamp)
+	var filename string
+	if suffix == "" {
+		filename = fmt.Sprintf("android-img-%s.png", timestamp)
+	} else {
+		filename = fmt.Sprintf("android-img-%s-%s.png", timestamp, suffix)
+	}
 	localPath := filepath.Join(cfg.MediaPath, filename)
-
 	remotePath := "/sdcard/screenshot.png"
-
 	adbPath := cfg.GetADBPath()
+
 	err := adb.ExecuteCommand(adbPath, device.Serial, "shell", "screencap", remotePath)
 	if err != nil {
 		return fmt.Errorf("failed to take screenshot: %w", err)
@@ -29,12 +40,13 @@ func TakeScreenshot(cfg *config.Config, device adb.Device) error {
 
 	adb.ExecuteCommand(adbPath, device.Serial, "shell", "rm", remotePath)
 
-	fmt.Printf("Screenshot saved to: %s\n", localPath)
+	if !silent {
+		fmt.Printf("Screenshot saved to: %s\n", localPath)
+	}
 	return nil
 }
 
-// setDarkMode toggles dark mode on the device using raw ADB commands
-func setDarkMode(cfg *config.Config, device adb.Device, enabled bool) error {
+func SetDarkMode(cfg *config.Config, device adb.Device, enabled bool) error {
 	adbPath := cfg.GetADBPath()
 	mode := "no"
 	if enabled {
@@ -44,95 +56,62 @@ func setDarkMode(cfg *config.Config, device adb.Device, enabled bool) error {
 	return adb.ExecuteCommand(adbPath, device.Serial, "shell", "cmd", "uimode", "night", mode)
 }
 
-// TakeDayNightScreenshots captures screenshots in both day and night mode
 func TakeDayNightScreenshots(cfg *config.Config, device adb.Device) error {
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	filenameDay := fmt.Sprintf("android-img-%s-day.png", timestamp)
-	filenameNight := fmt.Sprintf("android-img-%s-night.png", timestamp)
-	localPathDay := filepath.Join(cfg.MediaPath, filenameDay)
-	localPathNight := filepath.Join(cfg.MediaPath, filenameNight)
+	return takeDayNightScreenshots(cfg, device, false)
+}
 
-	remotePath := "/sdcard/screenshot.png"
-	adbPath := cfg.GetADBPath()
+func TakeDayNightScreenshotsSilent(cfg *config.Config, device adb.Device) error {
+	return takeDayNightScreenshots(cfg, device, true)
+}
 
-	fmt.Printf("Taking day and night screenshots of %s\n", device.Serial)
+func takeDayNightScreenshots(cfg *config.Config, device adb.Device, silent bool) error {
+	if !silent {
+		fmt.Printf("Taking day and night screenshots of %s\n", device.Serial)
+	}
 
-	fmt.Println("Setting light mode...")
-	err := setDarkMode(cfg, device, false)
+	if !silent {
+		fmt.Println("Setting light mode...")
+	}
+	err := SetDarkMode(cfg, device, false)
 	if err != nil {
 		return fmt.Errorf("failed to set light mode: %w", err)
 	}
 
 	time.Sleep(2 * time.Second) // Wait for UI to update
 
-	fmt.Println("Taking day screenshot...")
-	err = adb.ExecuteCommand(adbPath, device.Serial, "shell", "screencap", remotePath)
+	if !silent {
+		fmt.Println("Taking day screenshot...")
+	}
+	err = takeScreenshot(cfg, device, "day", silent)
 	if err != nil {
 		return fmt.Errorf("failed to take day screenshot: %w", err)
 	}
 
-	err = adb.ExecuteCommand(adbPath, device.Serial, "pull", remotePath, localPathDay)
-	if err != nil {
-		return fmt.Errorf("failed to pull day screenshot: %w", err)
+	if !silent {
+		fmt.Println("Setting dark mode...")
 	}
-
-	fmt.Printf("Day screenshot saved to: %s\n", localPathDay)
-
-	fmt.Println("Setting dark mode...")
-	err = setDarkMode(cfg, device, true)
+	err = SetDarkMode(cfg, device, true)
 	if err != nil {
 		return fmt.Errorf("failed to set dark mode: %w", err)
 	}
 
 	time.Sleep(2 * time.Second) // Wait for UI to update
 
-	fmt.Println("Taking night screenshot...")
-	err = adb.ExecuteCommand(adbPath, device.Serial, "shell", "screencap", remotePath)
+	if !silent {
+		fmt.Println("Taking night screenshot...")
+	}
+	err = takeScreenshot(cfg, device, "night", silent)
 	if err != nil {
 		return fmt.Errorf("failed to take night screenshot: %w", err)
 	}
 
-	err = adb.ExecuteCommand(adbPath, device.Serial, "pull", remotePath, localPathNight)
-	if err != nil {
-		return fmt.Errorf("failed to pull night screenshot: %w", err)
+	if !silent {
+		fmt.Println("Restoring light mode...")
 	}
-
-	fmt.Printf("Night screenshot saved to: %s\n", localPathNight)
-
-	fmt.Println("Restoring light mode...")
 	time.Sleep(2 * time.Second)
-	err = setDarkMode(cfg, device, false)
-	if err != nil {
+	err = SetDarkMode(cfg, device, false)
+	if err != nil && !silent {
 		fmt.Printf("Warning: failed to restore light mode: %v\n", err)
-	}
-
-	adb.ExecuteCommand(adbPath, device.Serial, "shell", "rm", remotePath)
-
-	return nil
-}
-
-// TUI-friendly functions that don't print to stdout
-
-// SetDarkModeForTUI toggles dark mode without printing output
-func SetDarkModeForTUI(cfg *config.Config, device adb.Device, enabled bool) error {
-	adbPath := cfg.GetADBPath()
-	mode := "no"
-	if enabled {
-		mode = "yes"
-	}
-	return adb.ExecuteCommand(adbPath, device.Serial, "shell", "cmd", "uimode", "night", mode)
-}
-
-// TakeScreenshotForTUI takes a screenshot without printing output
-func TakeScreenshotForTUI(adbPath, serial, remotePath, localPath string) error {
-	err := adb.ExecuteCommand(adbPath, serial, "shell", "screencap", remotePath)
-	if err != nil {
-		return fmt.Errorf("failed to take screenshot: %w", err)
-	}
-
-	err = adb.ExecuteCommand(adbPath, serial, "pull", remotePath, localPath)
-	if err != nil {
-		return fmt.Errorf("failed to pull screenshot: %w", err)
 	}
 
 	return nil

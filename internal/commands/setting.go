@@ -69,7 +69,6 @@ func (h *dpiHandler) SetValue(cfg *config.Config, device adb.Device, value strin
 	return SetDPI(cfg, device, dpi)
 }
 
-
 type fontSizeHandler struct{}
 
 func (h *fontSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*SettingInfo, error) {
@@ -95,7 +94,6 @@ func (h *fontSizeHandler) SetValue(cfg *config.Config, device adb.Device, value 
 	return SetFontSize(cfg, device, scale)
 }
 
-
 type screenSizeHandler struct{}
 
 func (h *screenSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*SettingInfo, error) {
@@ -116,4 +114,3 @@ func (h *screenSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*Set
 func (h *screenSizeHandler) SetValue(cfg *config.Config, device adb.Device, value string) error {
 	return SetScreenSize(cfg, device, value)
 }
-

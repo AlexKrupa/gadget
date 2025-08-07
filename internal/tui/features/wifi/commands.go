@@ -33,7 +33,6 @@ func PairWiFiCmd(cfg *config.Config, ipAndPort, pairingCode string) tea.Cmd {
 	})
 }
 
-
 // executeWiFiOperation executes a WiFi operation asynchronously with generic handling
 func executeWiFiOperation(cfg *config.Config, operation WiFiOperation, ipAndPort, pairingCode string) tea.Cmd {
 	return func() tea.Msg {
