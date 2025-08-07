@@ -8,14 +8,12 @@ import (
 	"strings"
 )
 
-// DPIInfo holds DPI information from the device
 type DPIInfo struct {
 	Physical int
 	Override int
 	Current  int // The effective DPI (override if exists, otherwise physical)
 }
 
-// GetCurrentDPI retrieves the current DPI setting from the device
 func GetCurrentDPI(cfg *config.Config, device adb.Device) (*DPIInfo, error) {
 	adbPath := cfg.GetADBPath()
 	output, err := adb.ExecuteCommandWithOutput(adbPath, device.Serial, "shell", "wm", "density")
@@ -64,7 +62,6 @@ func GetCurrentDPI(cfg *config.Config, device adb.Device) (*DPIInfo, error) {
 	return info, nil
 }
 
-// SetDPI changes the device DPI to the specified value
 func SetDPI(cfg *config.Config, device adb.Device, dpi int) error {
 	adbPath := cfg.GetADBPath()
 	err := adb.ExecuteCommand(adbPath, device.Serial, "shell", "wm", "density", strconv.Itoa(dpi))

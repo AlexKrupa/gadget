@@ -5,7 +5,6 @@ import (
 	"gadget/internal/adb"
 	"gadget/internal/config"
 	"strconv"
-	"strings"
 )
 
 // SettingType represents different types of device settings
@@ -17,7 +16,6 @@ const (
 	SettingTypeScreenSize SettingType = "screensize"
 )
 
-// SettingInfo holds generic setting information
 type SettingInfo struct {
 	Type        SettingType
 	DisplayName string
@@ -30,7 +28,6 @@ type SettingInfo struct {
 type SettingHandler interface {
 	GetInfo(cfg *config.Config, device adb.Device) (*SettingInfo, error)
 	SetValue(cfg *config.Config, device adb.Device, value string) error
-	ValidateInput(value string) error
 }
 
 // GetSettingHandler returns the appropriate handler for a setting type
@@ -47,7 +44,6 @@ func GetSettingHandler(settingType SettingType) SettingHandler {
 	}
 }
 
-// dpiHandler implements SettingHandler for DPI settings
 type dpiHandler struct{}
 
 func (h *dpiHandler) GetInfo(cfg *config.Config, device adb.Device) (*SettingInfo, error) {
@@ -73,15 +69,7 @@ func (h *dpiHandler) SetValue(cfg *config.Config, device adb.Device, value strin
 	return SetDPI(cfg, device, dpi)
 }
 
-func (h *dpiHandler) ValidateInput(value string) error {
-	_, err := strconv.Atoi(value)
-	if err != nil {
-		return fmt.Errorf("invalid DPI value: %s", value)
-	}
-	return nil
-}
 
-// fontSizeHandler implements SettingHandler for font size settings
 type fontSizeHandler struct{}
 
 func (h *fontSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*SettingInfo, error) {
@@ -107,15 +95,7 @@ func (h *fontSizeHandler) SetValue(cfg *config.Config, device adb.Device, value 
 	return SetFontSize(cfg, device, scale)
 }
 
-func (h *fontSizeHandler) ValidateInput(value string) error {
-	_, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return fmt.Errorf("invalid font size value: %s", value)
-	}
-	return nil
-}
 
-// screenSizeHandler implements SettingHandler for screen size settings
 type screenSizeHandler struct{}
 
 func (h *screenSizeHandler) GetInfo(cfg *config.Config, device adb.Device) (*SettingInfo, error) {
@@ -137,17 +117,3 @@ func (h *screenSizeHandler) SetValue(cfg *config.Config, device adb.Device, valu
 	return SetScreenSize(cfg, device, value)
 }
 
-func (h *screenSizeHandler) ValidateInput(value string) error {
-	parts := strings.Split(value, "x")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid screen size format: %s (expected format: 1080x1920)", value)
-	}
-
-	for _, part := range parts {
-		if _, err := strconv.Atoi(part); err != nil {
-			return fmt.Errorf("invalid screen size format: %s (both width and height must be numbers)", value)
-		}
-	}
-
-	return nil
-}

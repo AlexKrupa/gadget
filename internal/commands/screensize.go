@@ -8,13 +8,11 @@ import (
 	"strings"
 )
 
-// ScreenSizeInfo holds screen size information from the device
 type ScreenSizeInfo struct {
 	Physical string
 	Current  string // The effective screen size (override if exists, otherwise physical)
 }
 
-// GetCurrentScreenSize retrieves the current screen size setting from the device
 func GetCurrentScreenSize(cfg *config.Config, device adb.Device) (*ScreenSizeInfo, error) {
 	adbPath := cfg.GetADBPath()
 	output, err := adb.ExecuteCommandWithOutput(adbPath, device.Serial, "shell", "wm", "size")
@@ -55,7 +53,6 @@ func GetCurrentScreenSize(cfg *config.Config, device adb.Device) (*ScreenSizeInf
 	return info, nil
 }
 
-// SetScreenSize changes the device screen size to the specified dimensions
 func SetScreenSize(cfg *config.Config, device adb.Device, size string) error {
 	// Validate format (should be like "1080x1920")
 	parts := strings.Split(size, "x")

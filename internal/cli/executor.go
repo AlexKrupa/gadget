@@ -205,11 +205,7 @@ func executeSettingCommand(cfg *config.Config, deviceSerial, value string, setti
 		return nil
 	}
 
-	// Validate and set new value
-	if err := handler.ValidateInput(value); err != nil {
-		return err
-	}
-
+	// Set new value (validation happens in SetValue)
 	if err := handler.SetValue(cfg, device, value); err != nil {
 		return err
 	}

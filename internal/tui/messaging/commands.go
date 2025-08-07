@@ -33,16 +33,7 @@ func ChangeSettingCmd(cfg *config.Config, device adb.Device, settingType command
 	return func() tea.Msg {
 		handler := commands.GetSettingHandler(settingType)
 
-		if err := handler.ValidateInput(value); err != nil {
-			return SettingChangedMsg{
-				SettingType:    settingType,
-				Success:        false,
-				Message:        err.Error(),
-				CapturedOutput: nil,
-			}
-		}
-
-		// Changed: Capture command output
+		// Changed: Capture command output (validation happens in SetValue)
 		capturedOutput, err := capture.CaptureCommand(func() error {
 			return handler.SetValue(cfg, device, value)
 		})

@@ -8,13 +8,11 @@ import (
 	"strings"
 )
 
-// FontSizeInfo holds font size information from the device
 type FontSizeInfo struct {
 	Default float64
 	Current float64 // The effective font scale
 }
 
-// GetCurrentFontSize retrieves the current font size setting from the device
 func GetCurrentFontSize(cfg *config.Config, device adb.Device) (*FontSizeInfo, error) {
 	adbPath := cfg.GetADBPath()
 	output, err := adb.ExecuteCommandWithOutput(adbPath, device.Serial, "shell", "settings", "get", "system", "font_scale")
@@ -24,7 +22,6 @@ func GetCurrentFontSize(cfg *config.Config, device adb.Device) (*FontSizeInfo, e
 
 	currentStr := strings.TrimSpace(output)
 	if currentStr == "null" || currentStr == "" {
-		// Default font scale is 1.0 when not set
 		return &FontSizeInfo{
 			Default: 1.0,
 			Current: 1.0,
@@ -42,7 +39,6 @@ func GetCurrentFontSize(cfg *config.Config, device adb.Device) (*FontSizeInfo, e
 	}, nil
 }
 
-// SetFontSize changes the device font size to the specified scale
 func SetFontSize(cfg *config.Config, device adb.Device, scale float64) error {
 	adbPath := cfg.GetADBPath()
 	scaleStr := strconv.FormatFloat(scale, 'f', 1, 64)
