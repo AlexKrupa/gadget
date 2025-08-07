@@ -106,7 +106,7 @@ func NewModel(cfg *config.Config) Model {
 		selectedCommandIndex: 0,
 		searchMode:           false,
 		logHistory:           make([]LogEntry, 0),
-		maxLogEntries:        5, // Keep last 5 log entries
+		maxLogEntries:        20, // Keep last 20 log entries
 		operationStartTime:   time.Now(),
 		logChannel:           logChannel,
 		devicesFeature:       devices.NewDevicesFeature(cfg),
@@ -1379,7 +1379,7 @@ func (m Model) renderLogBox() string {
 			// Calculate indentation to align with content after timestamp and prefix
 			// Format: "[15:04:05] • " = 13 characters total
 			indent := strings.Repeat(" ", 13)
-			
+
 			for i, line := range lines {
 				if i == 0 {
 					// First line with timestamp and prefix
