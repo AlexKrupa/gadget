@@ -36,7 +36,7 @@ func StartDeviceTracking(adbPath string) (<-chan DeviceChangeEvent, error) {
 		defer cmd.Process.Kill() // Cleanup when goroutine exits
 
 		scanner := bufio.NewScanner(stdout)
-		
+
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if line == "" {
@@ -48,7 +48,7 @@ func StartDeviceTracking(adbPath string) (<-chan DeviceChangeEvent, error) {
 			if len(parts) >= 2 {
 				serial := strings.TrimSpace(parts[0])
 				status := strings.TrimSpace(parts[1])
-				
+
 				// Send event if device status is meaningful
 				if serial != "" && (status == "device" || status == "offline" || status == "disconnected") {
 					select {
@@ -69,4 +69,3 @@ func StartDeviceTracking(adbPath string) (<-chan DeviceChangeEvent, error) {
 
 	return eventChan, nil
 }
-

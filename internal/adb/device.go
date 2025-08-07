@@ -25,6 +25,7 @@ type Device struct {
 	CPUArchitecture string
 	APILevel        int // -1 if unknown
 	IPAddress       string
+	AVDName         string // Emulator AVD name if device is an emulator
 }
 
 // DeviceConnectionType represents the type of device connection
@@ -51,13 +52,13 @@ func (d Device) GetConnectionType() DeviceConnectionType {
 func (d Device) GetStatusIndicator() string {
 	switch d.GetConnectionType() {
 	case DeviceTypeEmulator:
-		return "🟡" // Yellow dot for emulators
+		return "🖥️" // Yellow dot for emulators
 	case DeviceTypeWiFi:
-		return "🟢" // Green dot for WiFi devices
+		return "🛜" // Green dot for WiFi devices
 	case DeviceTypePhysical:
-		return "🔵" // Blue dot for physical devices
+		return "📱" // Blue dot for physical devices
 	default:
-		return "⚪" // White dot for unknown
+		return "❓" // White dot for unknown
 	}
 }
 
@@ -67,10 +68,9 @@ func (d Device) String() string {
 	if strings.HasPrefix(d.Serial, "emulator-") {
 		var details []string
 
-		// Try to get AVD display name first
-		avdDisplayName := getAVDDisplayNameForEmulator(d.Serial)
-		if avdDisplayName != "" {
-			details = append(details, avdDisplayName)
+		// Try to get AVD name first
+		if d.AVDName != "" {
+			details = append(details, "AVD", d.AVDName)
 		} else {
 			// Fallback to cleaning up model names for emulators
 			if d.Model != "" && !strings.Contains(d.Model, "sdk_gphone") {
@@ -85,8 +85,6 @@ func (d Device) String() string {
 				details = append(details, productName)
 			}
 		}
-
-		details = append(details, "Emulator")
 
 		if len(details) > 0 {
 			return fmt.Sprintf("%s (%s)", d.Serial, strings.Join(details, " • "))
@@ -192,12 +190,64 @@ func ExecuteCommandWithOutput(adbPath, deviceSerial string, args ...string) (str
 	return string(output), err
 }
 
-// getAVDDisplayNameForEmulator tries to find the AVD display name for a running emulator
-func getAVDDisplayNameForEmulator(serial string) string {
-	// This is complex because there's no direct mapping between emulator-XXXX and AVD names
-	// The emulator processes contain AVD names but not port info
-	// For now, let's return empty and rely on fallback display
+// getAVDNameForEmulator tries to find the AVD name for a running emulator
+func getAVDNameForEmulator(adbPath, serial string) string {
+	if !strings.HasPrefix(serial, "emulator-") {
+		return ""
+	}
+
+	// Try to get AVD name via adb shell getprop
+	output, err := ExecuteCommandWithOutput(adbPath, serial, "shell", "getprop", "ro.boot.qemu.avd_name")
+	if err == nil {
+		avdName := strings.TrimSpace(output)
+		if avdName != "" && avdName != "unknown" {
+			return avdName
+		}
+	}
+
+	// Fallback: try console connection (less reliable)
+	port := strings.TrimPrefix(serial, "emulator-")
+	if consolePort, err := strconv.Atoi(port); err == nil {
+		// Console port is typically device_port + 1, but let's try the even port first
+		if consolePort%2 == 1 {
+			consolePort--
+		}
+		return getAVDNameFromConsole(consolePort + 1)
+	}
+
 	return ""
+}
+
+// getAVDNameFromConsole attempts to get AVD name from emulator console
+func getAVDNameFromConsole(consolePort int) string {
+	// This is a fallback method - less reliable than getprop method
+	cmd := exec.Command("nc", "-w", "1", "localhost", fmt.Sprintf("%d", consolePort))
+	cmd.Stdin = strings.NewReader("avd name\nquit\n")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.Contains(line, "OK") && !strings.Contains(line, "Android Console") {
+			return line
+		}
+	}
+
+	return ""
+}
+
+// GetRunningAVDNames extracts AVD names from devices that are emulators
+func GetRunningAVDNames(devices []Device) []string {
+	var avdNames []string
+	for _, device := range devices {
+		if device.GetConnectionType() == DeviceTypeEmulator && device.AVDName != "" {
+			avdNames = append(avdNames, device.AVDName)
+		}
+	}
+	return avdNames
 }
 
 // LoadExtendedInfo populates battery, Android version, screen resolution, CPU architecture, API level, and IP address for the device
@@ -263,6 +313,11 @@ func (d *Device) LoadExtendedInfo(adbPath string) {
 
 	// Load IP address - try multiple methods
 	d.loadIPAddress(adbPath)
+
+	// Load AVD name for emulators
+	if d.GetConnectionType() == DeviceTypeEmulator {
+		d.AVDName = getAVDNameForEmulator(adbPath, d.Serial)
+	}
 }
 
 // loadIPAddress attempts to get the device's IP address using various methods
@@ -325,11 +380,11 @@ func (d Device) GetExtendedInfo() string {
 
 	// Android version and API level
 	if d.AndroidVersion != "" && d.APILevel > 0 {
-		info = append(info, fmt.Sprintf("Android %s (API %d)", d.AndroidVersion, d.APILevel))
+		info = append(info, fmt.Sprintf("🤖 Android %s (API %d)", d.AndroidVersion, d.APILevel))
 	} else if d.AndroidVersion != "" {
-		info = append(info, fmt.Sprintf("Android %s", d.AndroidVersion))
+		info = append(info, fmt.Sprintf("🤖 Android %s", d.AndroidVersion))
 	} else if d.APILevel > 0 {
-		info = append(info, fmt.Sprintf("API %d", d.APILevel))
+		info = append(info, fmt.Sprintf("🤖 API %d", d.APILevel))
 	}
 
 	// CPU Architecture

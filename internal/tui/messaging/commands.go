@@ -19,6 +19,15 @@ func LoadAvdsCmd(cfg *config.Config) tea.Cmd {
 	}
 }
 
+// LoadLaunchableAvdsCmd returns a command that loads AVDs excluding running ones
+func LoadLaunchableAvdsCmd(cfg *config.Config, devices []adb.Device) tea.Cmd {
+	return func() tea.Msg {
+		runningAVDs := adb.GetRunningAVDNames(devices)
+		avds, err := emulator.GetLaunchableAVDs(cfg, runningAVDs)
+		return AvdsLoadedMsg{Avds: avds, Err: err}
+	}
+}
+
 // LoadSettingCmd returns a command that loads current setting value
 func LoadSettingCmd(cfg *config.Config, device adb.Device, settingType commands.SettingType) tea.Cmd {
 	return func() tea.Msg {

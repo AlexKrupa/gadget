@@ -771,7 +771,8 @@ func (m Model) executeSelectedCommand() (tea.Model, tea.Cmd) {
 	switch selectedCmd.Command {
 	case "launch-emulator":
 		m.mode = ModeEmulatorSelect
-		return m, loadAVDs(m.config)
+		devices := m.devicesFeature.GetDevices()
+		return m, loadLaunchableAVDs(m.config, devices)
 	case "configure-emulator":
 		m.mode = ModeEmulatorSelect
 		return m, loadAVDs(m.config)

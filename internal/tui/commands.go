@@ -25,6 +25,11 @@ func loadAVDs(cfg *config.Config) tea.Cmd {
 	return devices.LoadAvdsCmd(cfg)
 }
 
+// loadLaunchableAVDs loads available AVDs excluding currently running ones
+func loadLaunchableAVDs(cfg *config.Config, connectedDevices []adb.Device) tea.Cmd {
+	return devices.LoadLaunchableAvdsCmd(cfg, connectedDevices)
+}
+
 func takeScreenshot(cfg *config.Config, device adb.Device) tea.Cmd {
 	return media.TakeScreenshotCmd(cfg, device)
 }

@@ -60,6 +60,30 @@ func GetAvailableAVDs(cfg *config.Config) ([]AVD, error) {
 	return getAVDsFromDirectory()
 }
 
+// GetLaunchableAVDs returns available AVDs excluding currently running ones
+func GetLaunchableAVDs(cfg *config.Config, runningAVDs []string) ([]AVD, error) {
+	allAVDs, err := GetAvailableAVDs(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a set of running AVD names for quick lookup
+	runningSet := make(map[string]bool)
+	for _, avdName := range runningAVDs {
+		runningSet[avdName] = true
+	}
+
+	// Filter out running AVDs
+	var launchableAVDs []AVD
+	for _, avd := range allAVDs {
+		if !runningSet[avd.Name] {
+			launchableAVDs = append(launchableAVDs, avd)
+		}
+	}
+
+	return launchableAVDs, nil
+}
+
 // getAVDsFromDirectory parses AVDs directly from ~/.android/avd/
 func getAVDsFromDirectory() ([]AVD, error) {
 	homeDir, err := os.UserHomeDir()

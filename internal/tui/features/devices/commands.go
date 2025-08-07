@@ -31,6 +31,11 @@ func LoadAvdsCmd(cfg *config.Config) tea.Cmd {
 	return messaging.LoadAvdsCmd(cfg)
 }
 
+// LoadLaunchableAvdsCmd returns a command to load available AVDs excluding running ones
+func LoadLaunchableAvdsCmd(cfg *config.Config, devices []adb.Device) tea.Cmd {
+	return messaging.LoadLaunchableAvdsCmd(cfg, devices)
+}
+
 // StartDeviceTrackingCmd starts monitoring device changes via adb track-devices
 func StartDeviceTrackingCmd(cfg *config.Config) tea.Cmd {
 	return func() tea.Msg {
@@ -54,7 +59,7 @@ func WaitForDeviceChangeCmd(eventChan <-chan adb.DeviceChangeEvent) tea.Cmd {
 	return func() tea.Msg {
 		event := <-eventChan
 		_ = event // Use event for debugging if needed
-		
+
 		// Return after a brief delay to let device settle
 		time.Sleep(500 * time.Millisecond)
 		return messaging.DeviceRefreshMsg{Reason: "device-changed"}
