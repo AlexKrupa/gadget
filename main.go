@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gadget/internal/cli"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"gadget/internal/registry"
 	"gadget/internal/tui"
 	"os"
@@ -15,13 +16,6 @@ import (
 
 func main() {
 	cfg := config.NewConfig()
-
-	// Check if adb exists
-	if _, err := os.Stat(cfg.GetADBPath()); os.IsNotExist(err) {
-		fmt.Printf("Error: ADB not found at %s\n", cfg.GetADBPath())
-		fmt.Printf("Please check your ANDROID_HOME environment variable: %s\n", cfg.AndroidHome)
-		os.Exit(1)
-	}
 
 	availableCommands := registry.GetAvailableCommandNames()
 	commandHelp := fmt.Sprintf("Command to execute directly (%s)", strings.Join(availableCommands, ", "))
@@ -44,13 +38,29 @@ func main() {
 		args = args[1:] // Remove command from args
 	}
 
+	// Initialize logger based on execution mode
+	if cmdToExecute != "" {
+		// CLI mode - set up CLI renderer
+		logger.SetRenderer(logger.NewCLIRenderer())
+	}
+	// TUI mode - logger will be set up in TUI model creation
+
+	// Check if adb exists
+	if _, err := os.Stat(cfg.GetADBPath()); os.IsNotExist(err) {
+		logger.Error("ADB not found at %s", cfg.GetADBPath())
+		logger.Error("Please check your ANDROID_HOME environment variable: %s", cfg.AndroidHome)
+		os.Exit(1)
+	}
+
 	// If no command specified, start TUI
 	if cmdToExecute == "" {
 		model := tui.NewModel(cfg)
 		program := tea.NewProgram(model, tea.WithAltScreen())
 
 		if _, err := program.Run(); err != nil {
-			fmt.Printf("Error running program: %v\n", err)
+			// Set up CLI renderer for TUI error messages
+			logger.SetRenderer(logger.NewCLIRenderer())
+			logger.Error("Error running program: %v", err)
 			os.Exit(1)
 		}
 		return
@@ -59,13 +69,13 @@ func main() {
 	// Check if this is a nested command
 	if isNestedCommand(cmdToExecute) {
 		if err := cli.ExecuteNestedCommand(cfg, cmdToExecute, args); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			logger.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	} else {
 		parsedArgs := parsePositionalArgs(cmdToExecute, args, *deviceSerial, *ip, *code, *value)
 		if err := executeDirectCommand(cfg, cmdToExecute, parsedArgs.device, parsedArgs.ip, parsedArgs.code, parsedArgs.value); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			logger.Error("Error: %v", err)
 			os.Exit(1)
 		}
 	}

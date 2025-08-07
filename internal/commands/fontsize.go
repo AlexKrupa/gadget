@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"strconv"
 	"strings"
 )
@@ -47,6 +48,6 @@ func SetFontSize(cfg *config.Config, device adb.Device, scale float64) error {
 		return fmt.Errorf("failed to set font size to %s: %w", scaleStr, err)
 	}
 
-	fmt.Printf("Font size changed to %s on device %s\n", scaleStr, device.Serial)
+	logger.Success("Font size changed to %s on device %s", scaleStr, device.Serial)
 	return nil
 }

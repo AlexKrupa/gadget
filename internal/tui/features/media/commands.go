@@ -14,8 +14,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// takeScreenshotSilent takes a screenshot without printing output
-func takeScreenshotSilent(adbPath, serial, remotePath, localPath string) error {
+// takeScreenshotRaw takes a screenshot using raw ADB commands without logging
+func takeScreenshotRaw(adbPath, serial, remotePath, localPath string) error {
 	err := adb.ExecuteCommand(adbPath, serial, "shell", "screencap", remotePath)
 	if err != nil {
 		return fmt.Errorf("failed to take screenshot: %w", err)
@@ -193,7 +193,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	time.Sleep(1 * time.Second)
 
 	progress("Taking day screenshot...")
-	err = takeScreenshotSilent(adbPath, device.Serial, remotePath, localPathDay)
+	err = takeScreenshotRaw(adbPath, device.Serial, remotePath, localPathDay)
 	if err != nil {
 		progress(fmt.Sprintf("Error taking day screenshot: %v", err))
 		return err
@@ -209,7 +209,7 @@ func executeDayNightWithProgress(cfg *config.Config, device adb.Device, timestam
 	time.Sleep(1 * time.Second)
 
 	progress("Taking night screenshot...")
-	err = takeScreenshotSilent(adbPath, device.Serial, remotePath, localPathNight)
+	err = takeScreenshotRaw(adbPath, device.Serial, remotePath, localPathNight)
 	if err != nil {
 		progress(fmt.Sprintf("Error taking night screenshot: %v", err))
 		return err

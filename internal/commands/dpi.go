@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"strconv"
 	"strings"
 )
@@ -69,6 +70,6 @@ func SetDPI(cfg *config.Config, device adb.Device, dpi int) error {
 		return fmt.Errorf("failed to set DPI to %d: %w", dpi, err)
 	}
 
-	fmt.Printf("DPI changed to %d on device %s\n", dpi, device.Serial)
+	logger.Success("DPI changed to %d on device %s", dpi, device.Serial)
 	return nil
 }

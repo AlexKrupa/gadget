@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"strconv"
 	"strings"
 )
@@ -73,6 +74,6 @@ func SetScreenSize(cfg *config.Config, device adb.Device, size string) error {
 		return fmt.Errorf("failed to set screen size to %s: %w", size, err)
 	}
 
-	fmt.Printf("Screen size changed to %s on device %s\n", size, device.Serial)
+	logger.Success("Screen size changed to %s on device %s", size, device.Serial)
 	return nil
 }

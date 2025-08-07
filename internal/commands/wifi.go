@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"strconv"
 	"strings"
 	"time"
@@ -27,18 +28,18 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 	}
 
 	// Try connecting to the specified address
-	fmt.Printf("Attempting to connect to %s...\n", ipAndPort)
+	logger.Info("Attempting to connect to %s...", ipAndPort)
 	output, err := adb.ExecuteGlobalCommandWithOutput(adbPath, "connect", ipAndPort)
 	if err == nil && strings.Contains(output, "connected to") {
-		fmt.Printf("Successfully connected to %s\n", ipAndPort)
+		logger.Success("Successfully connected to %s", ipAndPort)
 
 		// If we connected to a non-standard port, try to switch to our standard port
 		if port != DefaultWiFiPort {
-			fmt.Printf("Switching device to standard port %d...\n", DefaultWiFiPort)
+			logger.Info("Switching device to standard port %d...", DefaultWiFiPort)
 			switchErr := adb.ExecuteCommand(adbPath, ipAndPort, "tcpip", fmt.Sprintf("%d", DefaultWiFiPort))
 			if switchErr != nil {
-				fmt.Printf("Warning: failed to switch to standard port: %v\n", switchErr)
-				fmt.Printf("Device will remain on port %d\n", port)
+				logger.Error("Warning: failed to switch to standard port: %v", switchErr)
+				logger.Info("Device will remain on port %d", port)
 				return nil
 			}
 
@@ -46,19 +47,19 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 
 			// Try connecting to the standard port
 			standardAddress := fmt.Sprintf("%s:%d", ip, DefaultWiFiPort)
-			fmt.Printf("Connecting to standard port %s...\n", standardAddress)
+			logger.Info("Connecting to standard port %s...", standardAddress)
 
 			standardOutput, standardErr := adb.ExecuteGlobalCommandWithOutput(adbPath, "connect", standardAddress)
 			if standardErr == nil && strings.Contains(standardOutput, "connected to") {
-				fmt.Printf("Successfully switched to standard port %s\n", standardAddress)
+				logger.Success("Successfully switched to standard port %s", standardAddress)
 
 				// Disconnect from the original port
-				fmt.Printf("Disconnecting from temporary port %s...\n", ipAndPort)
+				logger.Info("Disconnecting from temporary port %s...", ipAndPort)
 				adb.ExecuteGlobalCommand(adbPath, "disconnect", ipAndPort)
 
 				return nil
 			} else {
-				fmt.Printf("Warning: failed to connect to standard port, keeping original connection\n")
+				logger.Error("Warning: failed to connect to standard port, keeping original connection")
 			}
 		}
 
@@ -70,9 +71,9 @@ func ConnectWiFi(cfg *config.Config, ipAndPort string) error {
 
 	// Log the actual error for debugging
 	if err != nil {
-		fmt.Printf("Connection command failed: %v\n", err)
+		logger.Error("Connection command failed: %v", err)
 	} else {
-		fmt.Printf("Connection rejected: %s\n", strings.TrimSpace(output))
+		logger.Error("Connection rejected: %s", strings.TrimSpace(output))
 	}
 
 	return fmt.Errorf("failed to connect to %s. Device may need pairing first", ipAndPort)
@@ -92,12 +93,12 @@ func DisconnectWiFi(cfg *config.Config, ipAndPort string) error {
 		ipAndPort = fmt.Sprintf("%s:%d", ip, port)
 	}
 
-	fmt.Printf("Disconnecting from %s...\n", ipAndPort)
+	logger.Info("Disconnecting from %s...", ipAndPort)
 
 	// Check what devices are currently connected first
 	output, err := adb.ExecuteGlobalCommandWithOutput(adbPath, "devices")
 	if err == nil {
-		fmt.Printf("Currently connected devices:\n%s\n", output)
+		logger.Info("Currently connected devices:\n%s", output)
 	}
 
 	err = adb.ExecuteGlobalCommand(adbPath, "disconnect", ipAndPort)
@@ -109,7 +110,7 @@ func DisconnectWiFi(cfg *config.Config, ipAndPort string) error {
 		return fmt.Errorf("failed to disconnect from %s: %w", ipAndPort, err)
 	}
 
-	fmt.Printf("Disconnected from %s\n", ipAndPort)
+	logger.Success("Disconnected from %s", ipAndPort)
 
 	// Clean up any stale mDNS WiFi connections
 	CleanupStaleWiFiConnections(cfg)
@@ -136,7 +137,7 @@ func CleanupStaleWiFiConnections(cfg *config.Config) {
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {
 				deviceId := parts[0]
-				fmt.Printf("Cleaning up stale WiFi connection: %s\n", deviceId)
+				logger.Info("Cleaning up stale WiFi connection: %s", deviceId)
 				adb.ExecuteGlobalCommand(adbPath, "disconnect", deviceId)
 			}
 		}

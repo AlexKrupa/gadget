@@ -7,6 +7,7 @@ import (
 	"gadget/internal/config"
 	"gadget/internal/display"
 	"gadget/internal/emulator"
+	"gadget/internal/logger"
 	"os"
 	"os/signal"
 	"syscall"
@@ -131,9 +132,9 @@ func selectDevice(cfg *config.Config, deviceSerial string) (adb.Device, error) {
 		return devices[0], nil
 	}
 
-	fmt.Println("Multiple devices connected. Please specify device with -device flag:")
+	logger.Info("Multiple devices connected. Please specify device with -device flag:")
 	for _, device := range devices {
-		fmt.Printf("  %s\n", device.String())
+		logger.Info("  %s", device.String())
 	}
 	return adb.Device{}, fmt.Errorf("multiple devices connected, please specify -device")
 }
@@ -144,7 +145,7 @@ func ExecuteScreenshotDirect(cfg *config.Config, deviceSerial string) error {
 		return err
 	}
 
-	fmt.Printf("Taking screenshot on device: %s\n", device.Serial)
+	logger.Info("Taking screenshot on device: %s", device.Serial)
 	return commands.TakeScreenshot(cfg, device)
 }
 
@@ -154,7 +155,7 @@ func ExecuteScreenshotDayNightDirect(cfg *config.Config, deviceSerial string) er
 		return err
 	}
 
-	fmt.Printf("Taking day-night screenshots on device: %s\n", device.Serial)
+	logger.Info("Taking day-night screenshots on device: %s", device.Serial)
 	return commands.TakeDayNightScreenshots(cfg, device)
 }
 
@@ -164,8 +165,8 @@ func ExecuteScreenRecordDirect(cfg *config.Config, deviceSerial string) error {
 		return err
 	}
 
-	fmt.Printf("Starting screen recording on device: %s\n", device.Serial)
-	fmt.Println("Press Ctrl+C to stop recording...")
+	logger.Info("Starting screen recording on device: %s", device.Serial)
+	logger.Info("Press Ctrl+C to stop recording...")
 
 	recording, err := commands.StartScreenRecord(cfg, device)
 	if err != nil {
@@ -177,7 +178,7 @@ func ExecuteScreenRecordDirect(cfg *config.Config, deviceSerial string) error {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 
-	fmt.Println("\nStopping recording...")
+	logger.Info("\nStopping recording...")
 	return recording.StopAndSave()
 }
 
@@ -200,8 +201,8 @@ func executeSettingCommand(cfg *config.Config, deviceSerial, value string, setti
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s: %s\n", defaultLabel, info.Default)
-		fmt.Printf("%s: %s\n", currentLabel, info.Current)
+		logger.Info("%s: %s", defaultLabel, info.Default)
+		logger.Info("%s: %s", currentLabel, info.Current)
 		return nil
 	}
 
@@ -215,8 +216,8 @@ func executeSettingCommand(cfg *config.Config, deviceSerial, value string, setti
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s: %s\n", defaultLabel, info.Default)
-	fmt.Printf("%s: %s\n", currentLabel, info.Current)
+	logger.Info("%s: %s", defaultLabel, info.Default)
+	logger.Info("%s: %s", currentLabel, info.Current)
 	return nil
 }
 
@@ -241,7 +242,7 @@ func ExecuteLaunchEmulatorDirect(cfg *config.Config, avdName string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Launching emulator: %s\n", avd.Name)
+	logger.Info("Launching emulator: %s", avd.Name)
 	return emulator.LaunchEmulator(cfg, *avd)
 }
 
@@ -259,13 +260,13 @@ func ExecuteRefreshDevices(cfg *config.Config) error {
 		return err
 	}
 
-	fmt.Printf("Connected devices: %d\n", len(devices))
+	logger.Info("Connected devices: %d", len(devices))
 	for i := range devices {
 		// Load extended info for each device
 		devices[i].LoadExtendedInfo(cfg.GetADBPath())
 
 		formattedInfo := display.FormatExtendedInfoWithIndent(devices[i].String(), devices[i].GetExtendedInfo())
-		fmt.Printf("  %s\n", formattedInfo)
+		logger.Info("  %s", formattedInfo)
 	}
 	return nil
 }
@@ -273,15 +274,15 @@ func ExecuteRefreshDevices(cfg *config.Config) error {
 func executeWiFiCommand(cfg *config.Config, args []string) error {
 	if len(args) == 0 {
 		// Show help when no subcommand provided
-		fmt.Println("WiFi commands:")
-		fmt.Println("  wifi pair <ip:port> <code>     - Pair with WiFi device")
-		fmt.Println("  wifi connect <ip[:port]>       - Connect to WiFi device")
-		fmt.Println("  wifi disconnect <ip[:port]>    - Disconnect from WiFi device")
-		fmt.Println("")
-		fmt.Println("Examples:")
-		fmt.Println("  ./gadget wifi pair 192.168.1.100:5555 123456")
-		fmt.Println("  ./gadget wifi connect 192.168.1.100")
-		fmt.Println("  ./gadget wifi disconnect 192.168.1.100")
+		logger.Info("WiFi commands:")
+		logger.Info("  wifi pair <ip:port> <code>     - Pair with WiFi device")
+		logger.Info("  wifi connect <ip[:port]>       - Connect to WiFi device")
+		logger.Info("  wifi disconnect <ip[:port]>    - Disconnect from WiFi device")
+		logger.Info("")
+		logger.Info("Examples:")
+		logger.Info("  ./gadget wifi pair 192.168.1.100:5555 123456")
+		logger.Info("  ./gadget wifi connect 192.168.1.100")
+		logger.Info("  ./gadget wifi disconnect 192.168.1.100")
 		return nil
 	}
 
@@ -312,14 +313,14 @@ func executeWiFiCommand(cfg *config.Config, args []string) error {
 func executeEmulatorCommand(cfg *config.Config, args []string) error {
 	if len(args) == 0 {
 		// Show help when no subcommand provided
-		fmt.Println("Emulator commands:")
-		fmt.Println("  emulator launch [avd-name]     - Launch Android emulator")
-		fmt.Println("  emulator config [avd-name]     - Edit emulator configuration")
-		fmt.Println("")
-		fmt.Println("Examples:")
-		fmt.Println("  ./gadget emulator launch")
-		fmt.Println("  ./gadget emulator launch Pixel_6_API_34")
-		fmt.Println("  ./gadget emulator config Pixel_6_API_34")
+		logger.Info("Emulator commands:")
+		logger.Info("  emulator launch [avd-name]     - Launch Android emulator")
+		logger.Info("  emulator config [avd-name]     - Edit emulator configuration")
+		logger.Info("")
+		logger.Info("Examples:")
+		logger.Info("  ./gadget emulator launch")
+		logger.Info("  ./gadget emulator launch Pixel_6_API_34")
+		logger.Info("  ./gadget emulator config Pixel_6_API_34")
 		return nil
 	}
 

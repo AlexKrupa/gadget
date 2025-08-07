@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,7 +69,7 @@ func (r *ScreenRecording) StopAndSave() error {
 		return fmt.Errorf("recording file not found on device: %s", string(checkOutput))
 	}
 
-	fmt.Printf("File on device: %s\n", string(checkOutput))
+	logger.Info("File on device: %s", string(checkOutput))
 
 	localDir := filepath.Dir(r.LocalPath)
 	if err := os.MkdirAll(localDir, 0755); err != nil {
@@ -76,23 +77,23 @@ func (r *ScreenRecording) StopAndSave() error {
 	}
 
 	// Try to pull the file from device - try different approaches
-	fmt.Printf("Attempting pull command: %s -s %s pull %s %s\n", adbPath, r.Device.Serial, r.RemotePath, r.LocalPath)
+	logger.Info("Attempting pull command: %s -s %s pull %s %s", adbPath, r.Device.Serial, r.RemotePath, r.LocalPath)
 	pullCmd := exec.Command(adbPath, "-s", r.Device.Serial, "pull", r.RemotePath, r.LocalPath)
 	pullCmd.Stderr = nil
 	pullCmd.Stdout = nil
 	pullOutput, err := pullCmd.CombinedOutput()
 
 	if err != nil {
-		fmt.Printf("Pull attempt 1 failed. Error: %v\n", err)
-		fmt.Printf("Pull attempt 1 output: %q\n", string(pullOutput))
+		logger.Error("Pull attempt 1 failed. Error: %v", err)
+		logger.Error("Pull attempt 1 output: %q", string(pullOutput))
 
 		// Second try: without device serial (if only one device)
 		pullCmd2 := exec.Command(adbPath, "pull", r.RemotePath, r.LocalPath)
 		pullOutput2, err2 := pullCmd2.CombinedOutput()
 
 		if err2 != nil {
-			fmt.Printf("Pull attempt 2 failed. Error: %v\n", err2)
-			fmt.Printf("Pull attempt 2 output: %q\n", string(pullOutput2))
+			logger.Error("Pull attempt 2 failed. Error: %v", err2)
+			logger.Error("Pull attempt 2 output: %q", string(pullOutput2))
 
 			return fmt.Errorf("both pull attempts failed. First: %v (output: %q), Second: %v (output: %q)",
 				err, string(pullOutput), err2, string(pullOutput2))
@@ -102,6 +103,6 @@ func (r *ScreenRecording) StopAndSave() error {
 	cleanCmd := exec.Command(adbPath, "-s", r.Device.Serial, "shell", "rm", r.RemotePath)
 	cleanCmd.Run() // Ignore cleanup errors
 
-	fmt.Printf("Screen recording saved to: %s\n", r.LocalPath)
+	logger.Success("Screen recording saved to: %s", r.LocalPath)
 	return nil
 }

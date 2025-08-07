@@ -6,6 +6,7 @@ import (
 	"gadget/internal/adb"
 	"gadget/internal/commands"
 	"gadget/internal/config"
+	"gadget/internal/logger"
 	"gadget/internal/tui/capture"
 	"gadget/internal/tui/core"
 	"gadget/internal/tui/features/devices"
@@ -67,6 +68,7 @@ type Model struct {
 	logHistory    []LogEntry
 	maxLogEntries int
 	loading       bool
+	logChannel    chan logger.TUILogEntry // Channel for receiving logger messages
 
 	devicesFeature          *devices.DevicesFeature
 	mediaFeature            *media.MediaFeature
@@ -92,6 +94,9 @@ type Model struct {
 
 // NewModel creates a new TUI model
 func NewModel(cfg *config.Config) Model {
+	// Create log channel for TUI renderer
+	logChannel := make(chan logger.TUILogEntry, 100)
+
 	m := Model{
 		config:               cfg,
 		mode:                 ModeMenu,
@@ -103,11 +108,15 @@ func NewModel(cfg *config.Config) Model {
 		logHistory:           make([]LogEntry, 0),
 		maxLogEntries:        5, // Keep last 5 log entries
 		operationStartTime:   time.Now(),
+		logChannel:           logChannel,
 		devicesFeature:       devices.NewDevicesFeature(cfg),
 		mediaFeature:         media.NewMediaFeature(cfg),
 		wifiFeature:          wifi.NewWiFiFeature(cfg),
 		settingsFeature:      settings.NewSettingsFeature(cfg),
 	}
+
+	// Set up TUI renderer for unified logging
+	logger.SetRenderer(logger.NewTUIRenderer(logChannel))
 
 	m.keys = DefaultKeyMap()
 	m.help = help.New()
@@ -136,47 +145,48 @@ func newSpinner() spinner.Model {
 	return s
 }
 
-// addLogEntry adds a new log entry and maintains the history limit
-func (m *Model) addLogEntry(message string, logType LogType) {
-	normalizedMessage := strings.TrimSpace(strings.ReplaceAll(message, "\t", "  "))
+// addSuccess adds a success log entry using unified logger
+func (m *Model) addSuccess(message string) {
+	logger.Success(message)
+}
 
-	entry := LogEntry{
-		Message:   normalizedMessage,
-		Type:      logType,
-		Timestamp: time.Now(),
+// addError adds an error log entry using unified logger
+func (m *Model) addError(message string) {
+	logger.Error(message)
+}
+
+// addInfo adds an info log entry using unified logger
+func (m *Model) addInfo(message string) {
+	logger.Info(message)
+}
+
+// addLogEntryDirect converts a logger entry to TUI log entry and adds it to history
+func (m *Model) addLogEntryDirect(entry logger.TUILogEntry) {
+	// Convert logger levels to TUI log types
+	var logType LogType
+	switch entry.Level {
+	case logger.LogLevelError:
+		logType = LogTypeError
+	case logger.LogLevelSuccess:
+		logType = LogTypeSuccess
+	default:
+		logType = LogTypeInfo
 	}
 
-	m.logHistory = append(m.logHistory, entry)
+	// Create TUI log entry
+	tuiEntry := LogEntry{
+		Message:   entry.Message,
+		Type:      logType,
+		Timestamp: entry.Timestamp,
+	}
+
+	m.logHistory = append(m.logHistory, tuiEntry)
 
 	if len(m.logHistory) > m.maxLogEntries {
 		m.logHistory = m.logHistory[len(m.logHistory)-m.maxLogEntries:]
 	}
 
 	m.err = nil
-}
-
-// addSuccess adds a success log entry
-func (m *Model) addSuccess(message string) {
-	m.addLogEntry(message, LogTypeSuccess)
-}
-
-// addError adds an error log entry
-func (m *Model) addError(message string) {
-	m.addLogEntry(message, LogTypeError)
-}
-
-// addInfo adds an info log entry
-func (m *Model) addInfo(message string) {
-	m.addLogEntry(message, LogTypeInfo)
-}
-
-// processCapturedOutput logs all captured output lines as info entries
-func (m *Model) processCapturedOutput(capturedOutput []string) {
-	for _, line := range capturedOutput {
-		if strings.TrimSpace(line) != "" {
-			m.addInfo(line)
-		}
-	}
 }
 
 // clearLogs clears all log entries
@@ -319,12 +329,34 @@ func (m Model) fuzzyMatchStringScore(str, filter string) int {
 
 // Init initializes the model (required by Bubble Tea)
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(loadDevices(m.config), m.spinner.Tick)
+	return tea.Batch(loadDevices(m.config), m.spinner.Tick, m.listenForLogs())
+}
+
+// LoggerMsg represents a message from the unified logger
+type LoggerMsg struct {
+	Entry logger.TUILogEntry
+}
+
+// listenForLogs creates a command that listens for logger messages
+func (m Model) listenForLogs() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case logEntry := <-m.logChannel:
+			return LoggerMsg{Entry: logEntry}
+		default:
+			time.Sleep(10 * time.Millisecond)
+			return m.listenForLogs()()
+		}
+	}
 }
 
 // Update handles messages and updates the model state
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case LoggerMsg:
+		// Handle logger messages - convert and add to log history
+		m.addLogEntryDirect(msg.Entry)
+		return m, m.listenForLogs()
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 	case spinner.TickMsg:
@@ -349,8 +381,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case screenshotDoneMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, _, successMsg, errorMsg := m.mediaFeature.HandleScreenshotDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -360,8 +396,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case dayNightScreenshotDoneMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, _, successMsg, errorMsg := m.mediaFeature.HandleDayNightScreenshotDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -377,8 +417,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case screenRecordDoneMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, _, successMsg, errorMsg := m.mediaFeature.HandleScreenRecordDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -421,8 +465,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case settingChangedMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, cmd, successMsg, errorMsg := m.settingsFeature.HandleSettingChanged(msg, m.selectedDeviceForAction)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -433,8 +481,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case wifiConnectDoneMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiConnectDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -446,8 +498,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case wifiDisconnectDoneMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiDisconnectDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -459,8 +515,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case wifiPairDoneMsg:
-		// Changed: Process captured output first, then result
-		m.processCapturedOutput(msg.CapturedOutput)
+		// Log captured output
+		for _, line := range msg.CapturedOutput {
+			if strings.TrimSpace(line) != "" {
+				logger.Info(line)
+			}
+		}
 		_, _, successMsg, errorMsg := m.wifiFeature.HandleWiFiPairDone(msg)
 		if successMsg != "" {
 			m.addSuccess(successMsg)
@@ -501,6 +561,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Continue polling
 			return m, PollGenericChannels(msg.OutputChan)
 		}
+		return m, nil
+	case GenericCommandComplete:
+		// Handle completion of generic streaming commands
+		// Check what operation was active and finish it appropriately
+		if m.mediaFeature.IsTakingScreenshot() {
+			m.mediaFeature.FinishScreenshot()
+		}
+		// WiFi and other operations don't have progress indicators that need clearing
 		return m, nil
 	case ChannelPollResult:
 		// Handle live output from day-night streaming
@@ -1433,7 +1501,8 @@ func PollGenericChannels(outputChan <-chan string) tea.Cmd {
 				}
 			} else if !ok {
 				// Channel closed - command is done
-				return nil // No completion message needed for generic commands
+				// Send completion message for screenshot operations
+				return GenericCommandComplete{CommandType: "generic"}
 			}
 		default:
 			// No new data, continue polling
@@ -1451,6 +1520,11 @@ type GenericChannelPollResult struct {
 	LiveOutput string
 	ShouldPoll bool
 	OutputChan <-chan string
+}
+
+// GenericCommandComplete signals that a generic command has completed
+type GenericCommandComplete struct {
+	CommandType string // "screenshot", "wifi", etc.
 }
 
 // ChannelPollResult represents a result from polling day-night channels
