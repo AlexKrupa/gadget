@@ -1374,16 +1374,20 @@ func (m Model) renderLogBox() string {
 			// Format timestamp (show only time for recent entries)
 			timeStr := entry.Timestamp.Format("15:04:05")
 
-			// Handle multi-line messages by indenting continuation lines
+			// Handle multi-line messages by aligning continuation lines
 			lines := strings.Split(entry.Message, "\n")
+			// Calculate indentation to align with content after timestamp and prefix
+			// Format: "[15:04:05] • " = 13 characters total
+			indent := strings.Repeat(" ", 13)
+			
 			for i, line := range lines {
 				if i == 0 {
 					// First line with timestamp and prefix
 					formattedLine := fmt.Sprintf("[%s] %s %s", timeStr, prefix, strings.TrimSpace(line))
 					logLines = append(logLines, style.Render(formattedLine))
 				} else if strings.TrimSpace(line) != "" {
-					// Continuation lines with single space indentation
-					indentedLine := fmt.Sprintf(" %s", strings.TrimSpace(line))
+					// Continuation lines aligned with first line content
+					indentedLine := fmt.Sprintf("%s%s", indent, strings.TrimSpace(line))
 					logLines = append(logLines, style.Render(indentedLine))
 				}
 			}
