@@ -92,11 +92,26 @@ Built with a feature-based architecture prioritizing vertical slices over horizo
 - **Command system**: Modular, registry-based command execution with validation
 - **Configuration**: Environment-aware Android SDK detection with sensible defaults
 
+### Testing
+
+```bash
+# Run all tests
+go test ./internal/test -v
+
+# Run specific test
+go test ./internal/test -run TestRefreshDevicesCommand -v
+```
+
+Uses Go's `TestHelperProcess` pattern to intercept `exec.Command("adb")` calls and return canned responses. Tests verify `refresh-devices` command parsing, error handling, and logger output. Runs without ADB installation or connected devices.
+
 ### Development commands
 
 ```bash
-# Quality checks (format, tidy, optimize imports, find dead code)
+# Quality checks (format, tidy, optimize imports, tests, build)
 ./quality-check.sh
+
+# Run tests only
+go test ./internal/test -v
 
 # Build binary
 go build -o gadget

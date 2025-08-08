@@ -55,7 +55,17 @@ else
 fi
 echo
 
-# 6. Final build test
+# 6. Run tests
+echo "🧪 Running tests..."
+if go test ./internal/test -v; then
+    echo "✅ All tests passed"
+else
+    echo "❌ Tests failed"
+    exit 1
+fi
+echo
+
+# 7. Final build test
 echo "🔨 Testing build..."
 if go build -o gadget; then
     echo "✅ Build successful"
