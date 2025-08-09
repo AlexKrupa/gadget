@@ -52,23 +52,6 @@ func (f *GenericExecFaker) GetExecutedCommands() []ExecutionRecord {
 	return f.executedCommands
 }
 
-// GetStubs returns all configured stubs (for debugging)
-func (f *GenericExecFaker) GetStubs() []CommandStub {
-	return f.stubs
-}
-
-// FindExecutedCommand finds the first executed command matching the pattern
-func (f *GenericExecFaker) FindExecutedCommand(commandSuffix string, args ...string) *ExecutionRecord {
-	for _, record := range f.executedCommands {
-		if strings.HasSuffix(record.Command, commandSuffix) {
-			if len(args) == 0 || f.argsMatch(record.Args, args) {
-				return &record
-			}
-		}
-	}
-	return nil
-}
-
 // FakeExecCommand returns a fake exec.Cmd that will run our test helper
 func (f *GenericExecFaker) FakeExecCommand(command string, args ...string) *exec.Cmd {
 	// Record this command execution

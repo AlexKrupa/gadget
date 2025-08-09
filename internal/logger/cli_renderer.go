@@ -30,8 +30,6 @@ func (r *CLIRenderer) Render(entry LogEntry) {
 		color = ColorRed
 	case LogLevelSuccess:
 		color = ColorGreen
-	case LogLevelDebug:
-		color = ColorGray
 	default: // LogLevelInfo
 		color = ColorReset
 	}

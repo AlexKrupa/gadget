@@ -9,16 +9,13 @@ import (
 type LogLevel int
 
 const (
-	LogLevelDebug LogLevel = iota
-	LogLevelInfo
+	LogLevelInfo LogLevel = iota
 	LogLevelSuccess
 	LogLevelError
 )
 
 func (l LogLevel) String() string {
 	switch l {
-	case LogLevelDebug:
-		return "DEBUG"
 	case LogLevelInfo:
 		return "INFO"
 	case LogLevelSuccess:
@@ -40,7 +37,6 @@ type Logger interface {
 	Info(format string, args ...interface{})
 	Error(format string, args ...interface{})
 	Success(format string, args ...interface{})
-	Debug(format string, args ...interface{})
 }
 
 // Renderer interface defines how log entries are displayed
@@ -56,10 +52,6 @@ type GlobalLogger struct {
 var (
 	globalLogger = &GlobalLogger{}
 )
-
-func GetLogger() *GlobalLogger {
-	return globalLogger
-}
 
 func SetRenderer(r Renderer) {
 	globalLogger.mu.Lock()
@@ -77,10 +69,6 @@ func (l *GlobalLogger) Error(format string, args ...interface{}) {
 
 func (l *GlobalLogger) Success(format string, args ...interface{}) {
 	l.log(LogLevelSuccess, format, args...)
-}
-
-func (l *GlobalLogger) Debug(format string, args ...interface{}) {
-	l.log(LogLevelDebug, format, args...)
 }
 
 func (l *GlobalLogger) log(level LogLevel, format string, args ...interface{}) {
@@ -112,8 +100,4 @@ func Error(format string, args ...interface{}) {
 
 func Success(format string, args ...interface{}) {
 	globalLogger.Success(format, args...)
-}
-
-func Debug(format string, args ...interface{}) {
-	globalLogger.Debug(format, args...)
 }
