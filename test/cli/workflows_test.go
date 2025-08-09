@@ -1,8 +1,12 @@
 package test
 
 import (
+	"fmt"
 	"gadget/internal/logger"
+	"gadget/test/cli/util"
+	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,14 +33,14 @@ func ReplaceExecCommand(fakeFn ExecCommandFn) func() {
 func TestEndToEndRefreshDevices(t *testing.T) {
 	tests := []struct {
 		name           string
-		fakeSetup      func(*ExecFaker)
+		fakeSetup      func(*util.GenericExecFaker, string)
 		expectedOutput []string
 		expectError    bool
 	}{
 		{
 			name: "full e2e single device",
-			fakeSetup: func(f *ExecFaker) {
-				f.FakeADBDevicesSingle()
+			fakeSetup: func(f *util.GenericExecFaker, adbPath string) {
+				f.StubSingleDevice(adbPath)
 			},
 			expectedOutput: []string{"Connected devices: 1", "emulator-5554"},
 			expectError:    false,
@@ -46,16 +50,15 @@ func TestEndToEndRefreshDevices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up the faker
-			faker := NewExecFaker()
-			tt.fakeSetup(faker)
+			faker := util.NewGenericExecFaker()
+			cfg := util.TestConfig()
+			tt.fakeSetup(faker, cfg.GetADBPath())
 
 			// Capture CLI output
 			var cliError error
 
 			// Capture output during the CLI command execution
-			output := CaptureLogOutput(func() {
-				cfg := TestConfig()
-
+			output := util.CaptureLogOutput(func() {
 				// For now, let's test the individual pieces since full exec interception
 				// requires more invasive changes to the codebase
 				devices, err := getConnectedDevicesWithFake(cfg.GetADBPath(), faker)
@@ -87,10 +90,10 @@ func TestEndToEndRefreshDevices(t *testing.T) {
 // TestFakingActualADBCommands demonstrates the exact shell commands being intercepted
 func TestFakingActualADBCommands(t *testing.T) {
 	t.Run("verify fake ADB commands work correctly", func(t *testing.T) {
-		faker := NewExecFaker()
+		faker := util.NewGenericExecFaker()
 
 		// Test single device fake
-		faker.FakeADBDevicesSingle()
+		faker.StubSingleDevice("/test/adb")
 		cmd := faker.FakeExecCommand("/test/adb", "devices", "-l")
 		output, err := cmd.Output()
 
@@ -100,8 +103,8 @@ func TestFakingActualADBCommands(t *testing.T) {
 		assert.Contains(t, string(output), "device")
 
 		// Test multiple device fake
-		faker2 := NewExecFaker()
-		faker2.FakeADBDevicesMultiple()
+		faker2 := util.NewGenericExecFaker()
+		faker2.StubMultipleDevices("/test/adb")
 		cmd2 := faker2.FakeExecCommand("/test/adb", "devices", "-l")
 		output2, err2 := cmd2.Output()
 
@@ -110,8 +113,8 @@ func TestFakingActualADBCommands(t *testing.T) {
 		assert.Contains(t, string(output2), "192.168.1.100:5555")
 
 		// Test error case
-		faker3 := NewExecFaker()
-		faker3.FakeADBError()
+		faker3 := util.NewGenericExecFaker()
+		faker3.StubADBError("/test/adb")
 		cmd3 := faker3.FakeExecCommand("/test/adb", "devices", "-l")
 		_, err3 := cmd3.Output()
 
@@ -122,16 +125,16 @@ func TestFakingActualADBCommands(t *testing.T) {
 // TestCommandInterceptionDocumentation demonstrates how to extend this for other commands
 func TestCommandInterceptionDocumentation(t *testing.T) {
 	t.Run("example of faking screenshot command", func(t *testing.T) {
-		faker := NewExecFaker()
+		faker := util.NewGenericExecFaker()
 
 		// Fake the screenshot command sequence:
 		// 1. adb -s device shell screencap /sdcard/screenshot.png
 		// 2. adb -s device pull /sdcard/screenshot.png /local/path
 		// 3. adb -s device shell rm /sdcard/screenshot.png
 
-		faker.AddFake("/test/adb", []string{"-s", "emulator-5554", "shell", "screencap", "/sdcard/screenshot.png"}, "", "", 0)
-		faker.AddFake("/test/adb", []string{"-s", "emulator-5554", "pull", "/sdcard/screenshot.png", "/test/media/android-img-test.png"}, "pulled screenshot", "", 0)
-		faker.AddFake("/test/adb", []string{"-s", "emulator-5554", "shell", "rm", "/sdcard/screenshot.png"}, "", "", 0)
+		faker.AddStub("/test/adb", []string{"-s", "emulator-5554", "shell", "screencap", "/sdcard/screenshot.png"}, "", "", 0)
+		faker.AddStub("/test/adb", []string{"-s", "emulator-5554", "pull", "/sdcard/screenshot.png", "/test/media/android-img-test.png"}, "pulled screenshot", "", 0)
+		faker.AddStub("/test/adb", []string{"-s", "emulator-5554", "shell", "rm", "/sdcard/screenshot.png"}, "", "", 0)
 
 		// Test each command in sequence
 		cmd1 := faker.FakeExecCommand("/test/adb", "-s", "emulator-5554", "shell", "screencap", "/sdcard/screenshot.png")
@@ -147,4 +150,46 @@ func TestCommandInterceptionDocumentation(t *testing.T) {
 		err3 := cmd3.Run()
 		assert.NoError(t, err3)
 	})
+}
+
+// TestHelperProcess is the test helper that gets executed when we mock commands
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_TEST_HELPER_PROCESS") != "1" {
+		return
+	}
+
+	// Get the command being run from the args
+	args := os.Args
+	for len(args) > 0 {
+		if args[0] == "--" {
+			args = args[1:]
+			break
+		}
+		args = args[1:]
+	}
+
+	if len(args) == 0 {
+		os.Exit(1)
+	}
+
+	// Output the mocked response
+	stdout := os.Getenv("TEST_STDOUT")
+	stderr := os.Getenv("TEST_STDERR")
+	exitCodeStr := os.Getenv("TEST_EXIT_CODE")
+
+	if stdout != "" {
+		fmt.Fprint(os.Stdout, stdout)
+	}
+	if stderr != "" {
+		fmt.Fprint(os.Stderr, stderr)
+	}
+
+	exitCode := 0
+	if exitCodeStr != "" {
+		if code, err := strconv.Atoi(exitCodeStr); err == nil {
+			exitCode = code
+		}
+	}
+
+	os.Exit(exitCode)
 }

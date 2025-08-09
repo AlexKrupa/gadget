@@ -1,14 +1,10 @@
 package test
 
 import (
-	"bytes"
 	"fmt"
 	"gadget/internal/adb"
 	"gadget/internal/logger"
-	"io"
-	"os"
-	"os/exec"
-	"strconv"
+	"gadget/test/cli/util"
 	"strings"
 	"testing"
 
@@ -16,109 +12,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHelperProcess is the test helper that gets executed when we mock commands
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_TEST_HELPER_PROCESS") != "1" {
-		return
-	}
-
-	// Get the command being run from the args
-	args := os.Args
-	for len(args) > 0 {
-		if args[0] == "--" {
-			args = args[1:]
-			break
-		}
-		args = args[1:]
-	}
-
-	if len(args) == 0 {
-		os.Exit(1)
-	}
-
-	// Output the mocked response
-	stdout := os.Getenv("TEST_STDOUT")
-	stderr := os.Getenv("TEST_STDERR")
-	exitCodeStr := os.Getenv("TEST_EXIT_CODE")
-
-	if stdout != "" {
-		fmt.Fprint(os.Stdout, stdout)
-	}
-	if stderr != "" {
-		fmt.Fprint(os.Stderr, stderr)
-	}
-
-	exitCode := 0
-	if exitCodeStr != "" {
-		if code, err := strconv.Atoi(exitCodeStr); err == nil {
-			exitCode = code
-		}
-	}
-
-	os.Exit(exitCode)
-}
-
-// CaptureLogOutput captures logger output during test execution
-func CaptureLogOutput(fn func()) string {
-	// Redirect stdout to capture logger output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	// Set up CLI renderer for testing
-	logger.SetRenderer(logger.NewCLIRenderer())
-
-	// Run the function
-	fn()
-
-	// Close writer and restore stdout
-	w.Close()
-	os.Stdout = oldStdout
-
-	// Read the captured output
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	return buf.String()
-}
-
-// fakeExecCommand is our replacement for exec.Command during tests
-var fakeExecCommand = exec.Command
-
 func TestRefreshDevicesCommand(t *testing.T) {
 	tests := []struct {
 		name           string
-		fakeSetup      func(*ExecFaker)
+		fakeSetup      func(*util.GenericExecFaker, string)
 		expectedOutput []string // Strings that should appear in output
 		expectError    bool
 	}{
 		{
 			name: "single device connected",
-			fakeSetup: func(f *ExecFaker) {
-				f.FakeADBDevicesSingle()
+			fakeSetup: func(f *util.GenericExecFaker, adbPath string) {
+				f.StubSingleDevice(adbPath)
 			},
 			expectedOutput: []string{"Connected devices: 1", "emulator-5554"},
 			expectError:    false,
 		},
 		{
 			name: "multiple devices connected",
-			fakeSetup: func(f *ExecFaker) {
-				f.FakeADBDevicesMultiple()
+			fakeSetup: func(f *util.GenericExecFaker, adbPath string) {
+				f.StubMultipleDevices(adbPath)
 			},
 			expectedOutput: []string{"Connected devices: 2", "emulator-5554", "192.168.1.100:5555"},
 			expectError:    false,
 		},
 		{
 			name: "no devices connected",
-			fakeSetup: func(f *ExecFaker) {
-				f.FakeADBDevicesEmpty()
+			fakeSetup: func(f *util.GenericExecFaker, adbPath string) {
+				f.StubEmptyDevices(adbPath)
 			},
 			expectedOutput: []string{"Connected devices: 0"},
 			expectError:    false,
 		},
 		{
 			name: "adb command fails",
-			fakeSetup: func(f *ExecFaker) {
-				f.FakeADBError()
+			fakeSetup: func(f *util.GenericExecFaker, adbPath string) {
+				f.StubADBError(adbPath)
 			},
 			expectedOutput: []string{},
 			expectError:    true,
@@ -128,20 +56,9 @@ func TestRefreshDevicesCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up command faking
-			faker := NewExecFaker()
-			tt.fakeSetup(faker)
-
-			// Replace exec.Command with our fake
-			originalCommand := fakeExecCommand
-			fakeExecCommand = faker.FakeExecCommand
-			// We need to also replace it in the adb package - this is tricky
-			// For now, let's test the adb.GetConnectedDevices function directly
-			defer func() {
-				fakeExecCommand = originalCommand
-			}()
-
-			// Create test config
-			cfg := TestConfig()
+			faker := util.NewGenericExecFaker()
+			cfg := util.TestConfig()
+			tt.fakeSetup(faker, cfg.GetADBPath())
 
 			// Test ADB function directly with fake
 			devices, err := getConnectedDevicesWithFake(cfg.GetADBPath(), faker)
@@ -155,7 +72,7 @@ func TestRefreshDevicesCommand(t *testing.T) {
 			}
 
 			// Test the display logic
-			output := CaptureLogOutput(func() {
+			output := util.CaptureLogOutput(func() {
 				logger.Info("Connected devices: %d", len(devices))
 				for _, device := range devices {
 					logger.Info("  %s", device.String())
@@ -171,7 +88,7 @@ func TestRefreshDevicesCommand(t *testing.T) {
 }
 
 // getConnectedDevicesWithFake is a version of adb.GetConnectedDevices that uses our fake
-func getConnectedDevicesWithFake(adbPath string, faker *ExecFaker) ([]adb.Device, error) {
+func getConnectedDevicesWithFake(adbPath string, faker *util.GenericExecFaker) ([]adb.Device, error) {
 	// Use the faker to create a fake command
 	cmd := faker.FakeExecCommand(adbPath, "devices", "-l")
 	output, err := cmd.Output()
@@ -245,8 +162,8 @@ func TestFullRefreshDevicesCommand(t *testing.T) {
 		// This test would require more complex exec.Command interception
 		// For now, let's verify that our fake parsing works correctly
 
-		faker := NewExecFaker()
-		faker.FakeADBDevicesSingle()
+		faker := util.NewGenericExecFaker()
+		faker.StubSingleDevice("/test/adb")
 
 		devices, err := getConnectedDevicesWithFake("/test/adb", faker)
 		require.NoError(t, err)

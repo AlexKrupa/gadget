@@ -64,5 +64,5 @@ func PairWiFiDeviceForTUI(cfg *config.Config, ipAndPort, pairingCode string, pro
 
 	errorMsg := fmt.Sprintf("Pairing failed: %s", strings.TrimSpace(output))
 	progress(errorMsg)
-	return fmt.Errorf(errorMsg)
+	return fmt.Errorf("%s", errorMsg)
 }

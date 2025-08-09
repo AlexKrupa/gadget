@@ -57,7 +57,7 @@ echo
 
 # 6. Run tests
 echo "🧪 Running tests..."
-if go test ./internal/test -v; then
+if go test ./test/...; then
     echo "✅ All tests passed"
 else
     echo "❌ Tests failed"

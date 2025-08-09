@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"gadget/internal/display"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -100,7 +99,7 @@ func (d Device) String() string {
 
 // GetConnectedDevices returns a list of connected ADB devices
 func GetConnectedDevices(adbPath string) ([]Device, error) {
-	cmd := exec.Command(adbPath, "devices", "-l")
+	cmd := execCommand(adbPath, "devices", "-l")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get devices: %w", err)
@@ -163,19 +162,19 @@ func ExecuteCommand(adbPath, deviceSerial string, args ...string) error {
 	cmdArgs := []string{"-s", deviceSerial}
 	cmdArgs = append(cmdArgs, args...)
 
-	cmd := exec.Command(adbPath, cmdArgs...)
+	cmd := execCommand(adbPath, cmdArgs...)
 	return cmd.Run()
 }
 
 // ExecuteGlobalCommand runs an adb command without targeting a specific device
 func ExecuteGlobalCommand(adbPath string, args ...string) error {
-	cmd := exec.Command(adbPath, args...)
+	cmd := execCommand(adbPath, args...)
 	return cmd.Run()
 }
 
 // ExecuteGlobalCommandWithOutput runs an adb command without targeting a specific device and returns output
 func ExecuteGlobalCommandWithOutput(adbPath string, args ...string) (string, error) {
-	cmd := exec.Command(adbPath, args...)
+	cmd := execCommand(adbPath, args...)
 	output, err := cmd.Output()
 	return string(output), err
 }
@@ -185,7 +184,7 @@ func ExecuteCommandWithOutput(adbPath, deviceSerial string, args ...string) (str
 	cmdArgs := []string{"-s", deviceSerial}
 	cmdArgs = append(cmdArgs, args...)
 
-	cmd := exec.Command(adbPath, cmdArgs...)
+	cmd := execCommand(adbPath, cmdArgs...)
 	output, err := cmd.Output()
 	return string(output), err
 }
@@ -221,7 +220,7 @@ func getAVDNameForEmulator(adbPath, serial string) string {
 // getAVDNameFromConsole attempts to get AVD name from emulator console
 func getAVDNameFromConsole(consolePort int) string {
 	// This is a fallback method - less reliable than getprop method
-	cmd := exec.Command("nc", "-w", "1", "localhost", fmt.Sprintf("%d", consolePort))
+	cmd := execCommand("nc", "-w", "1", "localhost", fmt.Sprintf("%d", consolePort))
 	cmd.Stdin = strings.NewReader("avd name\nquit\n")
 	output, err := cmd.Output()
 	if err != nil {
